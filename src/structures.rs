@@ -48,6 +48,7 @@ impl Default for Material {
     }
 }
 
+#[derive(Clone)]
 pub struct Light {
     pub pos: Vec3,
     pub color: Vec3,
