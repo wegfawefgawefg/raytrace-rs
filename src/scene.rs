@@ -61,6 +61,10 @@ impl Scene {
             shapes,
         }
     }
+
+    pub fn default_cam(width: f32, height: f32) -> Vec3 {
+        Vec3::new(width / 2.0, height / 2.0, -width / 2.0)
+    }
 }
 
 // Assume Sphere and Material structs and their implementations are already defined above.

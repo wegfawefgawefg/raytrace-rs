@@ -1,92 +1,17 @@
+use std::f32::consts::PI;
+
 use indicatif::ProgressBar;
 
 use glam::{IVec2, Vec3};
 use image_writing::write_as_png;
+use rendering::{render_scene, render_scene_no_pb};
 use scene::Scene;
-use structures::{Ray, Sphere};
+use structures::{Light, Sphere};
 
 pub mod image_writing;
+pub mod rendering;
 pub mod scene;
 pub mod structures;
-
-// dummy raytrace function
-
-#[allow(clippy::needless_range_loop)]
-fn render_scene(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
-    let mut pixels = vec![vec![Vec3::ZERO; scene.width as usize]; scene.height as usize];
-
-    let pb = ProgressBar::new(scene.height as u64);
-    for y in 0..(scene.height as usize) {
-        for x in 0..(scene.width as usize) {
-            let target = Vec3::new(x as f32, y as f32, 0.0);
-            let ray = Ray::new(scene.cam, target - scene.cam);
-            pixels[y][x] = raytrace(&ray, scene, max_bounces, 0);
-        }
-        pb.inc(1);
-    }
-    pb.finish_with_message("Rendering complete");
-
-    pixels
-}
-
-fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 {
-    if depth == max_bounces {
-        return Vec3::ZERO;
-    }
-
-    let mut shape_hit: Option<&Sphere> = None;
-    let mut min_dist = f32::INFINITY;
-    for shape in &scene.shapes {
-        if let Some(dist) = shape.intersects(ray) {
-            if dist < min_dist {
-                shape_hit = Some(shape);
-                min_dist = dist;
-            }
-        }
-    }
-
-    match shape_hit {
-        None => Vec3::ZERO,
-        Some(shape) => {
-            let hit_pos = ray.origin + ray.dir * min_dist;
-            let hit_normal = shape.get_normal(hit_pos);
-            let mut color = color_at(scene, ray, shape, &hit_pos, &hit_normal);
-
-            let bounce_dir = ray.dir - 2.0 * ray.dir.dot(hit_normal) * hit_normal;
-            let bounce_ray = Ray::new(hit_pos + hit_normal * 0.001, bounce_dir);
-            color += raytrace(&bounce_ray, scene, max_bounces, depth + 1);
-            color
-        }
-    }
-}
-
-fn color_at(
-    scene: &Scene,
-    ray: &Ray,
-    shape_hit: &Sphere,
-    hit_pos: &Vec3,
-    hit_normal: &Vec3,
-) -> Vec3 {
-    let mut color = shape_hit.material.color * shape_hit.material.ambient;
-
-    for light in &scene.lights {
-        let to_light = (light.pos - *hit_pos).normalize();
-        let to_cam = (scene.cam - *hit_pos).normalize();
-
-        // Diffuse lighting model
-        color += shape_hit.material.color
-            * shape_hit.material.diffuse
-            * f32::max(hit_normal.dot(to_light), 0.0);
-
-        // Specular lighting model
-        let halfway = (to_light + to_cam).normalize();
-        color += light.color
-            * shape_hit.material.specular
-            * f32::max(hit_normal.dot(halfway), 0.0).powi(30);
-    }
-
-    color
-}
 
 fn main() {
     // let dims = IVec2::new(200, 200);
@@ -103,8 +28,9 @@ fn main() {
         IVec2 { x: 4096, y: 2160 },
         IVec2 { x: 7680, y: 4320 },
     ];
-    let resolution = resolutions[4];
-    basic_balls(resolution);
+    let resolution = resolutions[2];
+    // basic_balls(resolution);
+    make_animation(resolution, 60);
 }
 
 pub fn basic_balls(resolution: IVec2) {
@@ -115,25 +41,85 @@ pub fn basic_balls(resolution: IVec2) {
         .expect("Failed to write PNG file");
 }
 
-// pub fn make_animation(resolution: IVec2, num_frames: u32, start_time: f32, end_time: f32) {
-//     // make folder for animation
-//     let path = std::path::Path::new("animation");
-//     if path.exists() {
-//         std::fs::remove_dir_all(path).expect("Failed to remove animation folder");
-//     }
-//     std::fs::create_dir_all("animation").expect("Failed to create animation folder");
+pub fn make_animation(resolution: IVec2, num_frames: u32) {
+    // make folder for animation
+    let path = std::path::Path::new("animation");
+    if path.exists() {
+        std::fs::remove_dir_all(path).expect("Failed to remove animation folder");
+    }
+    std::fs::create_dir_all("animation").expect("Failed to create animation folder");
 
-//     // procedurally generate frames
-//     let time = start_time;
-//     let interval = (end_time - start_time) / num_frames as f32;
-//     for _ in 0..num_frames {
-//         // make a scene
+    // procedurally generate frames
+    let width = resolution.x as f32;
+    let height = resolution.y as f32;
+    let start_time = 0.0;
+    let end_time = PI * 2.0;
+    let interval = (end_time - start_time) / num_frames as f32;
+    let pb = ProgressBar::new(num_frames as u64);
+    for i in 0..num_frames {
+        let t = start_time + i as f32 * interval;
 
-//         // render the scene
+        // make a scene
+        let mut scene = Scene {
+            width,
+            height,
+            cam: Scene::default_cam(width, height),
+            lights: vec![],
+            shapes: vec![],
+        };
 
-//         // save rendered  frame
-//         let path = format!("animation/{}.png", time);
-//         write_as_png(&path, &pixels, resolution.x as u32, resolution.y as u32)
-//             .expect("Failed to write PNG file");
-//     }
-// }
+        // a single centered light
+        let light = Light::new(
+            // Vec3::new(
+            //     width / 2.0 + 0.5 * 2.0 * width * 2.0,
+            //     height / 2.0 + 0.5 * 2.0 * height * 2.0,
+            //     width / 2.0 + 0.5 * width,
+            // ),
+            Vec3::new(width / 4.0, height / 4.0, 0.0),
+            Vec3::new(255.0, 255.0, 255.0),
+        );
+        scene.lights.push(light);
+
+        // sphere material
+        let material = structures::Material::new(
+            Vec3::new(150.0, 150.0, 200.0),
+            0.1, //0.05
+            0.5,
+            0.8,
+            1.0,
+        );
+
+        // lets make a sphere go around in a circle around the center of the screen
+        let offset = width / 4.0;
+        let scene_center = Vec3::new(width / 2.0, height / 2.0, 0.0);
+
+        let offset_x_mod = t.cos() * offset;
+        let offset_y_mod = t.sin() * offset;
+        let p = scene_center + Vec3::new(offset_x_mod, offset_y_mod, 0.0);
+        let radius = 50.0;
+        let sphere = Sphere {
+            center: p,
+            radius,
+            material,
+        };
+        scene.shapes.push(sphere);
+
+        // render the scene
+        let pixels = render_scene_no_pb(&scene, 3);
+
+        // save rendered  frame
+        let path = format!("animation/{}", i);
+        write_as_png(&path, &pixels, resolution.x as u32, resolution.y as u32)
+            .expect("Failed to write PNG file");
+
+        pb.inc(1);
+    }
+    pb.finish_with_message("Animation complete");
+
+    // run make_vid.sh
+    let output = std::process::Command::new("sh")
+        .arg("make_vid.sh")
+        .output()
+        .expect("Failed to run make_vid.sh");
+    println!("{}", String::from_utf8_lossy(&output.stdout));
+}
