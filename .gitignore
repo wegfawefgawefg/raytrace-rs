@@ -19,5 +19,6 @@ Cargo.lock
 /target
 
 /animation
+/saved_outputs
 output.png
 output.mp4

@@ -5,7 +5,7 @@ use indicatif::ProgressBar;
 use glam::{IVec2, Vec3};
 use image_writing::write_as_png;
 use rand::Rng;
-use rendering::{render_scene, render_scene_no_pb};
+use rendering::{render_scene, render_scene_no_pb, render_scene_par};
 use scene::Scene;
 use structures::{Light, Sphere};
 
@@ -32,12 +32,14 @@ fn main() {
     ];
     let resolution = resolutions[3];
     // basic_balls(resolution);
+    let time = std::time::Instant::now();
     make_animation(resolution, 120);
+    println!("Time elapsed: {:?}", time.elapsed());
 }
 
 pub fn basic_balls(resolution: IVec2) {
     let scene = Scene::new(resolution.x as f32, resolution.y as f32);
-    let pixels = render_scene(&scene, 5);
+    let pixels = render_scene_par(&scene, 5);
 
     write_as_png("output", &pixels, resolution.x as u32, resolution.y as u32)
         .expect("Failed to write PNG file");
@@ -138,7 +140,7 @@ pub fn make_animation(resolution: IVec2, num_frames: u32) {
         }
 
         // render the scene
-        let pixels = render_scene_no_pb(&scene, 3);
+        let pixels = render_scene_par(&scene, 3);
 
         // save rendered  frame
         let path = format!("animation/{}", i);

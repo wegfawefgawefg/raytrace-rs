@@ -24,6 +24,25 @@ pub fn render_scene(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
     pixels
 }
 
+use rayon::prelude::*;
+
+#[allow(clippy::needless_range_loop)]
+pub fn render_scene_par(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
+    let pixels: Vec<Vec<Vec3>> = (0..scene.height as usize)
+        .into_par_iter() // Parallel iterator over the rows
+        .map(|y| {
+            let mut row = Vec::with_capacity(scene.width as usize);
+            for x in 0..scene.width as usize {
+                let target = Vec3::new(x as f32, y as f32, 0.0);
+                let ray = Ray::new(scene.cam, target - scene.cam);
+                row.push(raytrace(&ray, scene, max_bounces, 0));
+            }
+            row
+        })
+        .collect(); // Collect rows into a vector of rows
+    pixels
+}
+
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene_no_pb(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
     let mut pixels = vec![vec![Vec3::ZERO; scene.width as usize]; scene.height as usize];
