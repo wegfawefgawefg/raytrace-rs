@@ -1,17 +1,14 @@
-use std::f32::consts::PI;
+use glam::IVec2;
 
-use indicatif::ProgressBar;
+use crate::generate::{generate_image, ProceduralSceneBuilder, SceneBuilder};
 
-use glam::{IVec2, Vec3};
-use image_writing::write_as_png;
-use rand::Rng;
-use rendering::{render_scene, render_scene_no_pb, render_scene_par};
-use scene::Scene;
-use structures::{Light, Sphere};
-
+pub mod generate;
 pub mod image_writing;
+pub mod material;
 pub mod rendering;
 pub mod scene;
+pub mod scenes;
+pub mod shapes;
 pub mod structures;
 
 fn main() {
@@ -30,131 +27,23 @@ fn main() {
         IVec2 { x: 4096, y: 2160 },
         IVec2 { x: 7680, y: 4320 },
     ];
-    let resolution = resolutions[3];
-    // basic_balls(resolution);
+    let resolution = resolutions[6];
     let time = std::time::Instant::now();
-    make_animation(resolution, 120);
+
+    let mut scene_builders = Vec::<SceneBuilder>::new();
+    let mut procedural_scene_builders = Vec::<ProceduralSceneBuilder>::new();
+
+    scene_builders.push(scenes::fixed::single_centered_light);
+    scene_builders.push(scenes::fixed::some_random_lights);
+    scene_builders.push(scenes::fixed::checkered_floor);
+    // scene_builders.push(scenes::fixed::basic_balls);
+    // scene_builders.push(scenes::fixed::scene_4);
+
+    procedural_scene_builders.push(scenes::animated::interweaved_xbox_spinny);
+    procedural_scene_builders.push(scenes::animated::up_down_camera);
+
+    // generate_image(resolution, scene_builders, procedural_scene_builders);
+    generate::generate_animation(resolution, 120, scene_builders, procedural_scene_builders);
+
     println!("Time elapsed: {:?}", time.elapsed());
-}
-
-pub fn basic_balls(resolution: IVec2) {
-    let scene = Scene::new(resolution.x as f32, resolution.y as f32);
-    let pixels = render_scene_par(&scene, 5);
-
-    write_as_png("output", &pixels, resolution.x as u32, resolution.y as u32)
-        .expect("Failed to write PNG file");
-}
-
-pub fn make_animation(resolution: IVec2, num_frames: u32) {
-    // make folder for animation
-    let path = std::path::Path::new("animation");
-    if path.exists() {
-        std::fs::remove_dir_all(path).expect("Failed to remove animation folder");
-    }
-    std::fs::create_dir_all("animation").expect("Failed to create animation folder");
-
-    // procedurally generate frames
-    let width = resolution.x as f32;
-    let height = resolution.y as f32;
-    let start_time = 0.0;
-    let end_time = PI * 1.0;
-    let interval = (end_time - start_time) / num_frames as f32;
-    let pb = ProgressBar::new(num_frames as u64);
-
-    //  //  start with some premade lights
-    let mut lights = vec![];
-    let mut rng = rand::thread_rng(); // RNG for random number generation
-    for _ in 0..5 {
-        let light = Light::new(
-            Vec3::new(
-                width / 2.0 + (rng.gen::<f32>() - 0.5) * 2.0 * width * 2.0,
-                height / 2.0 + (rng.gen::<f32>() - 0.5) * 2.0 * height * 2.0,
-                width / 2.0 + rng.gen::<f32>() * width,
-            ),
-            Vec3::new(rng.gen(), rng.gen(), rng.gen()),
-        );
-        lights.push(light);
-    }
-
-    for i in 0..num_frames {
-        let t = start_time + i as f32 * interval;
-
-        // make a scene
-        let mut scene = Scene {
-            width,
-            height,
-            cam: Scene::default_cam(width, height),
-            lights: vec![],
-            shapes: vec![],
-        };
-
-        // copy the lights
-        scene.lights = lights.clone();
-
-        // a single centered light
-        let light = Light::new(
-            // Vec3::new(
-            //     width / 2.0 + 0.5 * 2.0 * width * 2.0,
-            //     height / 2.0 + 0.5 * 2.0 * height * 2.0,
-            //     width / 2.0 + 0.5 * width,
-            // ),
-            Vec3::new(width / 4.0, height / 4.0, 0.0),
-            Vec3::new(255.0, 255.0, 255.0),
-        );
-        scene.lights.push(light);
-
-        // lets make a sphere go around in a circle around the center of the screen
-        let offset = width / 4.0;
-        let scene_center = Vec3::new(width / 2.0, height / 2.0, 0.0);
-        for k in 0..6 {
-            let material =
-                structures::Material::new(Vec3::new(0.0, 255.0, 0.0), 0.05, 0.5, 0.8, 1.0);
-            let tt = t - (PI / 3.0 * k as f32);
-            let offset_x_mod = tt.cos() * offset;
-            let offset_y_mod = tt.sin() * offset;
-            let p = scene_center + Vec3::new(offset_x_mod, 0.0, offset_y_mod);
-            let radius = width / 16.0;
-            let sphere = Sphere {
-                center: p,
-                radius,
-                material,
-            };
-            scene.shapes.push(sphere);
-        }
-
-        let scene_center = Vec3::new(width / 2.0, height / 2.0, width / 4.0);
-        for k in 0..6 {
-            let material =
-                structures::Material::new(Vec3::new(0.0, 255.0, 0.0), 0.05, 0.5, 0.8, 1.0);
-            let tt = t - (PI / 3.0 * k as f32);
-            let offset_x_mod = tt.cos() * offset;
-            let offset_y_mod = tt.sin() * offset;
-            let p = scene_center + Vec3::new(0.0, offset_x_mod, offset_y_mod);
-            let radius = width / 16.0;
-            let sphere = Sphere {
-                center: p,
-                radius,
-                material,
-            };
-            scene.shapes.push(sphere);
-        }
-
-        // render the scene
-        let pixels = render_scene_par(&scene, 3);
-
-        // save rendered  frame
-        let path = format!("animation/{}", i);
-        write_as_png(&path, &pixels, resolution.x as u32, resolution.y as u32)
-            .expect("Failed to write PNG file");
-
-        pb.inc(1);
-    }
-    pb.finish_with_message("Animation complete");
-
-    // run make_vid.sh
-    let output = std::process::Command::new("sh")
-        .arg("make_vid.sh")
-        .output()
-        .expect("Failed to run make_vid.sh");
-    println!("{}", String::from_utf8_lossy(&output.stdout));
 }

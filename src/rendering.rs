@@ -1,10 +1,7 @@
 use glam::Vec3;
 use indicatif::ProgressBar;
 
-use crate::{
-    scene::Scene,
-    structures::{Ray, Sphere},
-};
+use crate::{scene::Scene, shapes::Shape, structures::Ray};
 
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
@@ -25,7 +22,6 @@ pub fn render_scene(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
 }
 
 use rayon::prelude::*;
-
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene_par(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
     let pixels: Vec<Vec<Vec3>> = (0..scene.height as usize)
@@ -63,7 +59,7 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
         return Vec3::ZERO;
     }
 
-    let mut shape_hit: Option<&Sphere> = None;
+    let mut shape_hit: Option<&Box<dyn Shape>> = None;
     let mut min_dist = f32::INFINITY;
     for shape in &scene.shapes {
         if let Some(dist) = shape.intersects(ray) {
@@ -92,25 +88,26 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
 pub fn color_at(
     scene: &Scene,
     ray: &Ray,
-    shape_hit: &Sphere,
+    shape_hit: &Box<dyn Shape>,
     hit_pos: &Vec3,
     hit_normal: &Vec3,
 ) -> Vec3 {
-    let mut color = shape_hit.material.color * shape_hit.material.ambient;
+    let material = shape_hit.material();
+    let mut color = material.color_at(hit_pos) * material.ambient_at(hit_pos);
 
     for light in &scene.lights {
         let to_light = (light.pos - *hit_pos).normalize();
         let to_cam = (scene.cam - *hit_pos).normalize();
 
         // Diffuse lighting model
-        color += shape_hit.material.color
-            * shape_hit.material.diffuse
+        color += material.color_at(hit_pos)
+            * material.diffuse_at(hit_pos)
             * f32::max(hit_normal.dot(to_light), 0.0);
 
         // Specular lighting model
         let halfway = (to_light + to_cam).normalize();
         color += light.color
-            * shape_hit.material.specular
+            * material.specular_at(hit_pos)
             * f32::max(hit_normal.dot(halfway), 0.0).powi(30);
     }
 
