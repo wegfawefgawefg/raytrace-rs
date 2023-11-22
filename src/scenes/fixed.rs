@@ -34,7 +34,7 @@ pub fn some_random_lights(scene: &mut Scene) {
     }
 }
 
-pub fn basic_balls(scene: &mut Scene) {
+pub fn some_random_balls(scene: &mut Scene) {
     let seed = [0u8; 32]; // All zeros
     let mut rng = SmallRng::from_seed(seed);
 
@@ -49,24 +49,15 @@ pub fn basic_balls(scene: &mut Scene) {
         );
 
         let sphere = Sphere::new(
-            Vec3::new(rng.gen::<f32>(), rng.gen::<f32>(), rng.gen::<f32>()),
-            rng.gen::<f32>() * 1.0 / 7.0,
+            Vec3::new(
+                (rng.gen::<f32>() - 0.5) * scene.scale * 2.0,
+                (rng.gen::<f32>() - 0.5) * scene.scale * 2.0,
+                (rng.gen::<f32>() - 0.5) * scene.scale * 2.0,
+            ),
+            (rng.gen::<f32>() - 0.0) * scene.scale / 8.0 + scene.scale / 16.0,
             Box::new(material),
         );
         scene.shapes.push(Box::new(sphere));
-    }
-
-    // lights
-    for _ in 0..20 {
-        let light = Light::new(
-            Vec3::new(
-                (rng.gen::<f32>() - 0.5) * 2.0,
-                (rng.gen::<f32>() - 0.5) * 2.0,
-                rng.gen::<f32>(),
-            ),
-            Vec3::new(rng.gen(), rng.gen(), rng.gen()),
-        );
-        scene.lights.push(light);
     }
 }
 

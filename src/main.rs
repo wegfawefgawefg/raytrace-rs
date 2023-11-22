@@ -25,10 +25,10 @@ fn main() {
             x: 1920 * 2,
             y: 2160,
         },
-        IVec2 { x: 4096, y: 2160 },
+        IVec2 { x: 3840, y: 2160 },
         IVec2 { x: 7680, y: 4320 },
     ];
-    let resolution = resolutions[3];
+    let resolution = resolutions[7];
     println!("Resolution: {:?}", resolution);
     let time = std::time::Instant::now();
 
@@ -36,12 +36,12 @@ fn main() {
     let mut procedural_scene_builders = Vec::<ProceduralSceneBuilder>::new();
 
     scene_builders.push(scenes::fixed::single_centered_light);
-    // scene_builders.push(scenes::fixed::some_random_lights);
+    scene_builders.push(scenes::fixed::some_random_lights);
     scene_builders.push(scenes::fixed::checkered_floor);
-    scene_builders.push(scenes::fixed::centered_ball);
+    // scene_builders.push(scenes::fixed::centered_ball);
 
     // scene_builders.push(scenes::fixed::set_cam);
-    // scene_builders.push(scenes::fixed::basic_balls);
+    scene_builders.push(scenes::fixed::some_random_balls);
     // scene_builders.push(scenes::fixed::scene_4);
 
     // procedural_scene_builders.push(scenes::animated::interweaved_xbox_spinny);

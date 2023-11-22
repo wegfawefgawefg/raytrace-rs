@@ -34,23 +34,23 @@ pub fn render_scene(
         viewport_center + left * (viewport_dims.x / 2.0) + up * (viewport_dims.y / 2.0);
 
     if !multithreaded {
-        return render_scene_inner(
+        render_scene_inner(
             scene,
             resolution,
             max_bounces,
             viewport_top_left,
             target_right_step,
             target_down_step,
-        );
+        )
     } else {
-        return render_scene_inner_multithreaded(
+        render_scene_inner_multithreaded(
             scene,
             resolution,
             max_bounces,
             viewport_top_left,
             target_right_step,
             target_down_step,
-        );
+        )
     }
 }
 
