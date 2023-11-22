@@ -1,17 +1,78 @@
-use glam::Vec3;
+use glam::{IVec2, Vec3};
 use indicatif::ProgressBar;
+use rayon::prelude::*;
 
-use crate::{scene::Scene, shapes::Shape, structures::Ray};
+use crate::{
+    scene::{Cam, Scene},
+    shapes::Shape,
+    structures::Ray,
+};
 
 #[allow(clippy::needless_range_loop)]
-pub fn render_scene(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
-    let mut pixels = vec![vec![Vec3::ZERO; scene.width as usize]; scene.height as usize];
+pub fn render_scene(
+    scene: &Scene,
+    resolution: IVec2,
+    max_bounces: u32,
+    multithreaded: bool,
+) -> Vec<Vec<Vec3>> {
+    let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
 
-    let pb = ProgressBar::new(scene.height as u64);
-    for y in 0..(scene.height as usize) {
-        for x in 0..(scene.width as usize) {
-            let target = Vec3::new(x as f32, y as f32, 0.0);
-            let ray = Ray::new(scene.cam, target - scene.cam);
+    let cam = &scene.cam;
+
+    let right = scene.cam.right;
+    let left = -right;
+    let up = scene.cam.up;
+    let down = -up;
+
+    let viewport_dims = scene.cam.viewport_dims;
+
+    let viewport_center = cam.pos + cam.dir * cam.viewport_dist;
+    let target_right_step = right * (cam.viewport_dims.x / resolution.x as f32);
+    let target_down_step = down * (cam.viewport_dims.y / resolution.y as f32);
+
+    let viewport_top_left =
+        viewport_center + left * (viewport_dims.x / 2.0) + up * (viewport_dims.y / 2.0);
+
+    if !multithreaded {
+        return render_scene_inner(
+            scene,
+            resolution,
+            max_bounces,
+            viewport_top_left,
+            target_right_step,
+            target_down_step,
+        );
+    } else {
+        return render_scene_inner_multithreaded(
+            scene,
+            resolution,
+            max_bounces,
+            viewport_top_left,
+            target_right_step,
+            target_down_step,
+        );
+    }
+}
+
+#[allow(clippy::needless_range_loop)]
+pub fn render_scene_inner(
+    scene: &Scene,
+    resolution: IVec2,
+    max_bounces: u32,
+
+    viewport_top_left: Vec3,
+    target_right_step: Vec3,
+    target_down_step: Vec3,
+) -> Vec<Vec<Vec3>> {
+    let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
+
+    let pb = ProgressBar::new(resolution.x as u64);
+    for y in 0..(resolution.y as usize) {
+        for x in 0..(resolution.x as usize) {
+            let target = viewport_top_left
+                + (target_right_step * (x as f32))
+                + (target_down_step * (y as f32));
+            let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
             pixels[y][x] = raytrace(&ray, scene, max_bounces, 0);
         }
         pb.inc(1);
@@ -21,16 +82,25 @@ pub fn render_scene(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
     pixels
 }
 
-use rayon::prelude::*;
 #[allow(clippy::needless_range_loop)]
-pub fn render_scene_par(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
-    let pixels: Vec<Vec<Vec3>> = (0..scene.height as usize)
+pub fn render_scene_inner_multithreaded(
+    scene: &Scene,
+    resolution: IVec2,
+    max_bounces: u32,
+
+    viewport_top_left: Vec3,
+    target_right_step: Vec3,
+    target_down_step: Vec3,
+) -> Vec<Vec<Vec3>> {
+    let pixels: Vec<Vec<Vec3>> = (0..resolution.y as usize)
         .into_par_iter() // Parallel iterator over the rows
         .map(|y| {
-            let mut row = Vec::with_capacity(scene.width as usize);
-            for x in 0..scene.width as usize {
-                let target = Vec3::new(x as f32, y as f32, 0.0);
-                let ray = Ray::new(scene.cam, target - scene.cam);
+            let mut row = Vec::with_capacity(resolution.x as usize);
+            for x in 0..resolution.x as usize {
+                let target = viewport_top_left
+                    + (target_right_step * (x as f32))
+                    + (target_down_step * (y as f32));
+                let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
                 row.push(raytrace(&ray, scene, max_bounces, 0));
             }
             row
@@ -40,13 +110,23 @@ pub fn render_scene_par(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
 }
 
 #[allow(clippy::needless_range_loop)]
-pub fn render_scene_no_pb(scene: &Scene, max_bounces: u32) -> Vec<Vec<Vec3>> {
-    let mut pixels = vec![vec![Vec3::ZERO; scene.width as usize]; scene.height as usize];
+pub fn render_scene_inner_no_progress_bar(
+    scene: &Scene,
+    resolution: IVec2,
+    max_bounces: u32,
 
-    for y in 0..(scene.height as usize) {
-        for x in 0..(scene.width as usize) {
-            let target = Vec3::new(x as f32, y as f32, 0.0);
-            let ray = Ray::new(scene.cam, target - scene.cam);
+    viewport_top_left: Vec3,
+    target_right_step: Vec3,
+    target_down_step: Vec3,
+) -> Vec<Vec<Vec3>> {
+    let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
+
+    for y in 0..(resolution.y as usize) {
+        for x in 0..(resolution.x as usize) {
+            let target = viewport_top_left
+                + (target_right_step * (x as f32))
+                + (target_down_step * (y as f32));
+            let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
             pixels[y][x] = raytrace(&ray, scene, max_bounces, 0);
         }
     }
@@ -97,7 +177,7 @@ pub fn color_at(
 
     for light in &scene.lights {
         let to_light = (light.pos - *hit_pos).normalize();
-        let to_cam = (scene.cam - *hit_pos).normalize();
+        let to_cam = (scene.cam.pos - *hit_pos).normalize();
 
         // Diffuse lighting model
         color += material.color_at(hit_pos)

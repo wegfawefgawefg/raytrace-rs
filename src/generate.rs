@@ -1,7 +1,7 @@
 use indicatif::ProgressBar;
 
 use crate::image_writing::write_as_png;
-use crate::rendering::render_scene_par;
+use crate::rendering::render_scene;
 use crate::scene::Scene;
 use glam::IVec2;
 
@@ -13,7 +13,8 @@ pub fn generate_image(
     scene_builders: Vec<SceneBuilder>,
     procedural_scene_builders: Vec<ProceduralSceneBuilder>,
 ) {
-    let mut scene = Scene::new(resolution.x as f32, resolution.y as f32);
+    let aspect_ratio = resolution.y as f32 / resolution.x as f32;
+    let mut scene = Scene::new(1.0, aspect_ratio);
 
     for pre_scene_builder in scene_builders {
         pre_scene_builder(&mut scene);
@@ -23,7 +24,7 @@ pub fn generate_image(
         psb(&mut scene, 1, 0);
     }
 
-    let pixels = crate::rendering::render_scene(&scene, 5);
+    let pixels = crate::rendering::render_scene(&scene, resolution, 5, true);
 
     write_as_png("output", &pixels, resolution.x as u32, resolution.y as u32)
         .expect("Failed to write PNG file");
@@ -44,7 +45,8 @@ pub fn generate_animation(
 
     let pb = ProgressBar::new(num_frames as u64);
     for frame in 0..num_frames {
-        let mut scene = Scene::new(resolution.x as f32, resolution.y as f32);
+        let aspect_ratio = resolution.y as f32 / resolution.x as f32;
+        let mut scene = Scene::new(1.0, aspect_ratio);
 
         for pre_scene_builder in pre_scene_builders.clone() {
             pre_scene_builder(&mut scene);
@@ -54,7 +56,7 @@ pub fn generate_animation(
             psb(&mut scene, num_frames, frame);
         }
 
-        let pixels = render_scene_par(&scene, 3);
+        let pixels = render_scene(&scene, resolution, 3, true);
 
         // save rendered  frame
         let path = format!("animation/{}", frame);
