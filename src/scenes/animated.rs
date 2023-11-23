@@ -5,7 +5,7 @@ use crate::scene::Scene;
 use crate::shapes::Sphere;
 use glam::Vec3;
 
-pub fn up_down_camera(scene: &mut Scene, num_frames: u32, frame: u32) {
+pub fn pidgeon_camera(scene: &mut Scene, num_frames: u32, frame: u32) {
     let start_time = 0.0;
     let end_time = PI * 2.0;
     let interval = (end_time - start_time) / num_frames as f32;
@@ -14,10 +14,32 @@ pub fn up_down_camera(scene: &mut Scene, num_frames: u32, frame: u32) {
 
     let center = Vec3::ZERO;
 
+    let offset = scene.scale * 1.0;
+
     scene.cam.pos = Vec3::new(
-        center.x + t.cos() * scene.scale * 2.0,
+        center.x + t.cos() * offset,
+        center.y + t.sin() * offset,
+        center.z - scene.scale * 2.0,
+    );
+
+    scene.cam.look_at(center);
+}
+
+pub fn orbit_camera(scene: &mut Scene, num_frames: u32, frame: u32) {
+    let start_time = 0.0;
+    let end_time = PI * 2.0;
+    let interval = (end_time - start_time) / num_frames as f32;
+
+    let t = start_time + frame as f32 * interval;
+
+    let center = Vec3::ZERO;
+
+    let orbit_offset = scene.scale * 5.0;
+
+    scene.cam.pos = Vec3::new(
+        center.x + t.cos() * orbit_offset,
         center.y,
-        center.z + t.sin() * scene.scale * 2.0,
+        center.z + t.sin() * orbit_offset,
     );
 
     scene.cam.look_at(center);

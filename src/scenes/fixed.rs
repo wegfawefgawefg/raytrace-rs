@@ -6,6 +6,7 @@ use std::f32::consts::PI;
 
 use crate::material::{BasicMaterial, CheckerMaterial};
 use crate::scene::Scene;
+use crate::shapes::Quad;
 use crate::shapes::{Plane, Sphere};
 use crate::structures::Light;
 
@@ -21,7 +22,7 @@ pub fn some_random_lights(scene: &mut Scene) {
     let seed = [0u8; 32]; // All zeros
     let mut rng = SmallRng::from_seed(seed);
 
-    for _ in 0..5 {
+    for _ in 0..3 {
         let light = Light::new(
             Vec3::new(
                 (rng.gen::<f32>() - 0.5) * scene.scale,
@@ -61,7 +62,7 @@ pub fn some_random_balls(scene: &mut Scene) {
     }
 }
 
-pub fn checkered_floor(scene: &mut Scene) {
+pub fn infinite_checkered_floor(scene: &mut Scene) {
     // a plane
     let basic_material = BasicMaterial::new(Vec3::new(255.0, 0.0, 0.0), 0.05, 0.5, 0.8, 1.0);
     let material = CheckerMaterial::new(
@@ -70,6 +71,39 @@ pub fn checkered_floor(scene: &mut Scene) {
         scene.scale,
         basic_material,
     );
+    let plane = Plane::new(
+        Vec3::new(0.0, -scene.scale, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        Box::new(material),
+    );
+    scene.shapes.push(Box::new(plane));
+}
+
+pub fn checkered_floor(scene: &mut Scene) {
+    // a plane
+    let basic_material = BasicMaterial::new(Vec3::new(255.0, 0.0, 0.0), 0.05, 0.5, 0.8, 1.0);
+    let material = CheckerMaterial::new(
+        Vec3::new(255.0, 255.0, 255.0),
+        Vec3::new(0.0, 0.0, 0.0),
+        scene.scale / 2.0,
+        basic_material,
+    );
+
+    let size = scene.scale * 5.0;
+
+    let plane = Quad::new(
+        Vec3::new(-size / 2.0, -scene.scale * 0.5, -size / 2.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        Vec3::new(size, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, size),
+        Box::new(material),
+    );
+    scene.shapes.push(Box::new(plane));
+}
+
+pub fn matte_floor(scene: &mut Scene) {
+    // a plane
+    let material = BasicMaterial::new(Vec3::new(255.0, 255.0, 255.0), 0.05, 0.1, 0.01, 0.05);
     let plane = Plane::new(
         Vec3::new(0.0, -scene.scale, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
@@ -133,4 +167,73 @@ pub fn set_cam(scene: &mut Scene) {
     // scene.cam.pos.x = 0.0;
     // scene.cam.pos.z = center.z;
     // scene.cam.look_at(center);
+}
+
+pub fn basic_quad(scene: &mut Scene) {
+    scene.shapes.push(Box::new(Quad::new(
+        Vec3::new(0.0, -0.5, 0.0),
+        Vec3::new(0.0, 0.1, 0.0),
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, 1.0),
+        Box::new(BasicMaterial::new(
+            Vec3::new(255.0, 255.0, 255.0),
+            0.5,
+            0.8,
+            0.05,
+            0.2,
+        )),
+    )));
+}
+
+pub fn light_box(scene: &mut Scene) {
+    let material = BasicMaterial::new(Vec3::new(255.0, 255.0, 255.0), 0.00, 0.01, 0.1, 1.0);
+
+    let scale = 2.0 * scene.scale;
+    let width = scale * 1.0;
+    let height = scale * 1.0;
+
+    // back wall
+    scene.shapes.push(Box::new(Quad::new(
+        Vec3::new(-width / 2.0, -width / 2.0, width / 2.0),
+        Vec3::new(0.0, 0.0, -1.0),
+        Vec3::new(width, 0.0, 0.0),
+        Vec3::new(0.0, height, 0.0),
+        Box::new(material.clone()),
+    )));
+
+    // Left Wall
+    scene.shapes.push(Box::new(Quad::new(
+        Vec3::new(-width / 2.0, -height * 0.5, width / 2.0),
+        Vec3::new(1.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, -width),
+        Vec3::new(0.0, height, 0.0),
+        Box::new(material.clone()),
+    )));
+
+    // Right Wall
+    scene.shapes.push(Box::new(Quad::new(
+        Vec3::new(width / 2.0, -scale * 0.5, width / 2.0),
+        Vec3::new(-1.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, -width),
+        Vec3::new(0.0, height, 0.0),
+        Box::new(material.clone()),
+    )));
+
+    // Top Wall (Ceiling)
+    scene.shapes.push(Box::new(Quad::new(
+        Vec3::new(-width / 2.0, height * 0.5, width / 2.0),
+        Vec3::new(0.0, -1.0, 0.0),
+        Vec3::new(width, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, -width),
+        Box::new(material.clone()),
+    )));
+
+    // Bottom Wall (Floor)
+    scene.shapes.push(Box::new(Quad::new(
+        Vec3::new(-width / 2.0, -height * 0.5, width / 2.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        Vec3::new(width, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, -width),
+        Box::new(material.clone()),
+    )));
 }
