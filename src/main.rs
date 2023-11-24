@@ -29,7 +29,7 @@ fn main() {
         IVec2 { x: 3840, y: 2160 },
         IVec2 { x: 7680, y: 4320 },
     ];
-    let resolution = resolutions[2];
+    let resolution = resolutions[3];
     println!("Resolution: {:?}", resolution);
     let time = std::time::Instant::now();
 

@@ -93,23 +93,23 @@ pub fn test_balls(scene: &mut Scene) {
         scene.scale / 4.0,
         Box::new(BasicMaterial::new(
             Vec3::new(255.0, 255.0, 255.0),
-            0.3,
             0.0,
-            0.0,
-            0.0,
+            0.01,
+            0.01,
+            0.01,
             1.0,
-            0.1,
+            0.5,
         )),
     )));
 
     // behind left
     scene.shapes.push(Box::new(Sphere::new(
-        Vec3::new(-scene.scale / 4.0, 0.0, scene.scale / 4.0),
+        Vec3::new(-scene.scale / 5.0, 0.0, scene.scale / 4.0),
         scene.scale / 4.0,
         Box::new(BasicMaterial::new(
             Vec3::new(255.0, 100.0, 100.0),
             0.25,
-            0.1,
+            0.25,
             0.1,
             0.0,
             0.0,
@@ -119,11 +119,11 @@ pub fn test_balls(scene: &mut Scene) {
 
     // behind right
     scene.shapes.push(Box::new(Sphere::new(
-        Vec3::new(scene.scale / 4.0, 0.0, scene.scale / 2.0),
+        Vec3::new(scene.scale / 5.0, 0.0, scene.scale / 2.0),
         scene.scale / 4.0,
         Box::new(BasicMaterial::new(
             Vec3::new(100.0, 255.0, 100.0),
-            0.0,
+            0.25,
             0.25,
             0.1,
             0.0,

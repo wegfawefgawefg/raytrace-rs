@@ -141,13 +141,15 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
 
     let mut shape_hit: Option<&Box<dyn Shape>> = None;
     let mut hit_record = HitRecord::new();
-    let mut min_dist = std::f32::INFINITY;
+    let mut closest_so_far = std::f32::INFINITY;
 
     for shape in &scene.shapes {
-        let hit = shape.hit(ray, 0.001, std::f32::INFINITY, &mut hit_record);
-        if hit && hit_record.t < min_dist {
+        let mut temp_hit_record = HitRecord::new();
+        let hit = shape.hit(ray, 0.001, std::f32::INFINITY, &mut temp_hit_record);
+        if hit && temp_hit_record.t < closest_so_far {
             shape_hit = Some(shape);
-            min_dist = hit_record.t;
+            hit_record = temp_hit_record;
+            closest_so_far = hit_record.t;
         }
     }
 
