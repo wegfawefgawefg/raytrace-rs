@@ -5,7 +5,9 @@ pub trait Material: Sync {
     fn ambient_at(&self, hit_pos: &Vec3) -> f32;
     fn diffuse_at(&self, hit_pos: &Vec3) -> f32;
     fn specular_at(&self, hit_pos: &Vec3) -> f32;
-    fn reflective_at(&self, hit_pos: &Vec3) -> f32;
+    fn reflection_at(&self, hit_pos: &Vec3) -> f32;
+    fn refraction_at(&self, hit_pos: &Vec3) -> f32;
+    fn refractive_index_at(&self, hit_pos: &Vec3) -> f32;
 }
 
 #[derive(Clone)]
@@ -14,7 +16,9 @@ pub struct BasicMaterial {
     pub ambient: f32,
     pub diffuse: f32,
     pub specular: f32,
-    pub reflective: f32,
+    pub reflection: f32,
+    pub refraction: f32,
+    pub refractive_index: f32,
 }
 
 impl BasicMaterial {
@@ -23,14 +27,18 @@ impl BasicMaterial {
         ambient: f32,
         diffuse: f32,
         specular: f32,
-        reflective: f32,
+        reflection: f32,
+        refraction: f32,
+        refractive_index: f32,
     ) -> BasicMaterial {
         BasicMaterial {
             color,
             ambient,
             diffuse,
             specular,
-            reflective,
+            reflection,
+            refraction,
+            refractive_index,
         }
     }
 }
@@ -52,8 +60,16 @@ impl Material for BasicMaterial {
         self.specular
     }
 
-    fn reflective_at(&self, _hit_pos: &Vec3) -> f32 {
-        self.reflective
+    fn reflection_at(&self, _hit_pos: &Vec3) -> f32 {
+        self.reflection
+    }
+
+    fn refraction_at(&self, _hit_pos: &Vec3) -> f32 {
+        self.refraction
+    }
+
+    fn refractive_index_at(&self, _hit_pos: &Vec3) -> f32 {
+        self.refractive_index
     }
 }
 
@@ -110,7 +126,15 @@ impl Material for CheckerMaterial {
         self.basic_material.specular_at(hit_pos)
     }
 
-    fn reflective_at(&self, hit_pos: &Vec3) -> f32 {
-        self.basic_material.reflective_at(hit_pos)
+    fn reflection_at(&self, hit_pos: &Vec3) -> f32 {
+        self.basic_material.reflection_at(hit_pos)
+    }
+
+    fn refraction_at(&self, _hit_pos: &Vec3) -> f32 {
+        self.basic_material.refraction
+    }
+
+    fn refractive_index_at(&self, _hit_pos: &Vec3) -> f32 {
+        self.basic_material.refractive_index
     }
 }

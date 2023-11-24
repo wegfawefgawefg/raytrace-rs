@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use crate::{
     scene::{Cam, Scene},
     shapes::Shape,
-    structures::Ray,
+    structures::{HitRecord, Ray},
 };
 
 #[allow(clippy::needless_range_loop)]
@@ -140,29 +140,75 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
     }
 
     let mut shape_hit: Option<&Box<dyn Shape>> = None;
-    let mut min_dist = f32::INFINITY;
+    let mut hit_record = HitRecord::new();
+    let mut min_dist = std::f32::INFINITY;
+
     for shape in &scene.shapes {
-        if let Some(dist) = shape.intersects(ray) {
-            if dist < min_dist {
-                shape_hit = Some(shape);
-                min_dist = dist;
-            }
+        let hit = shape.hit(ray, 0.001, std::f32::INFINITY, &mut hit_record);
+        if hit && hit_record.t < min_dist {
+            shape_hit = Some(shape);
+            min_dist = hit_record.t;
         }
     }
 
     match shape_hit {
         None => Vec3::ZERO,
         Some(shape) => {
-            let hit_pos = ray.origin + ray.dir * min_dist;
-            let hit_normal = shape.get_normal(hit_pos);
-            let mut color = color_at(scene, ray, shape, &hit_pos, &hit_normal);
+            let material = shape.material();
+            let hit_pos = ray.at(hit_record.t);
+            let hit_normal = hit_record.normal;
 
-            let bounce_dir = ray.dir - 2.0 * ray.dir.dot(hit_normal) * hit_normal;
-            let bounce_ray = Ray::new(hit_pos + hit_normal * 0.001, bounce_dir);
-            color += raytrace(&bounce_ray, scene, max_bounces, depth + 1);
+            let mut color = Vec3::ZERO;
+
+            //////// REFLECTION ////////
+            let reflectiveness = material.reflection_at(&hit_pos);
+            if reflectiveness > 0.0 {
+                let bounce_dir = ray.dir - 2.0 * ray.dir.dot(hit_normal) * hit_normal;
+                let bounce_ray = Ray::new(hit_pos + hit_normal * 0.001, bounce_dir);
+                color += raytrace(&bounce_ray, scene, max_bounces, depth + 1) * reflectiveness;
+            }
+
+            //////// REFRACTION ////////
+            let refractiveness = material.refraction_at(&hit_pos);
+            if refractiveness > 0.0 {
+                let outside = ray.dir.dot(hit_normal) > 0.0; // Check if ray is outside the object
+                let corrected_normal = if outside { hit_normal } else { -hit_normal };
+                let refracted_dir = refract(
+                    ray.dir,
+                    corrected_normal,
+                    material.refractive_index_at(&hit_pos),
+                    outside,
+                );
+
+                if let Some(refracted_dir) = refracted_dir {
+                    let refracted_ray = Ray::new(hit_pos + corrected_normal * 0.001, refracted_dir);
+                    let refracted_color = raytrace(&refracted_ray, scene, max_bounces, depth + 1);
+                    color += refracted_color * refractiveness;
+                }
+            }
+
+            //////// DIRECT LIGHTING ////////
+            color += color_at(scene, ray, shape, &hit_pos, &hit_normal);
+
             color
         }
     }
+}
+
+fn refract(incident: Vec3, normal: Vec3, refraction_index: f32, outside: bool) -> Option<Vec3> {
+    let n = if outside {
+        1.0 / refraction_index
+    } else {
+        refraction_index
+    };
+    let cosi = -normal.dot(incident).min(1.0).max(-1.0);
+    let sin_t2 = n * n * (1.0 - cosi * cosi);
+
+    if sin_t2 > 1.0 {
+        return None; // Total internal reflection
+    }
+    let cos_t = (1.0 - sin_t2).sqrt();
+    Some(n * incident + (n * cosi - cos_t) * normal)
 }
 
 pub fn color_at(

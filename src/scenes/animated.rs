@@ -34,7 +34,7 @@ pub fn orbit_camera(scene: &mut Scene, num_frames: u32, frame: u32) {
 
     let center = Vec3::ZERO;
 
-    let orbit_offset = scene.scale * 5.0;
+    let orbit_offset = scene.scale * 1.0;
 
     scene.cam.pos = Vec3::new(
         center.x + t.cos() * orbit_offset,
@@ -56,7 +56,7 @@ pub fn interweaved_xbox_spinny(scene: &mut Scene, num_frames: u32, frame: u32) {
     let offset = scene.scale / 4.0;
     let scene_center = Vec3::ZERO;
     for k in 0..6 {
-        let material = BasicMaterial::new(Vec3::new(0.0, 0.0, 0.0), 0.05, 0.5, 0.8, 1.0);
+        let material = BasicMaterial::new(Vec3::new(0.0, 0.0, 0.0), 0.05, 0.5, 0.8, 1.0, 0.0, 0.0);
         let tt = t - (PI / 3.0 * k as f32);
         let offset_x_mod = tt.cos() * offset;
         let offset_y_mod = tt.sin() * offset;
@@ -72,7 +72,7 @@ pub fn interweaved_xbox_spinny(scene: &mut Scene, num_frames: u32, frame: u32) {
 
     let scene_center = Vec3::ZERO;
     for k in 0..6 {
-        let material = BasicMaterial::new(Vec3::new(0.0, 0.0, 0.0), 0.05, 0.5, 0.8, 1.0);
+        let material = BasicMaterial::new(Vec3::new(0.0, 0.0, 0.0), 0.05, 0.5, 0.8, 1.0, 0.0, 0.0);
         let tt = t - (PI / 3.0 * k as f32);
         let offset_x_mod = tt.cos() * offset;
         let offset_y_mod = tt.sin() * offset;

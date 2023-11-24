@@ -1,9 +1,12 @@
 use glam::Vec3;
 
-use crate::{material::Material, structures::Ray};
+use crate::{
+    material::Material,
+    structures::{HitRecord, Ray},
+};
 
 pub trait Shape: Sync {
-    fn intersects(&self, ray: &Ray) -> Option<f32>;
+    fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool;
     fn get_normal(&self, hit_pos: Vec3) -> Vec3;
     fn material(&self) -> &Box<dyn Material>;
 }
@@ -25,22 +28,34 @@ impl Sphere {
 }
 
 impl Shape for Sphere {
-    fn intersects(&self, ray: &Ray) -> Option<f32> {
-        let to_sphere = self.center - ray.origin;
-        let t = to_sphere.dot(ray.dir);
-        if t < 0.0 {
-            return None;
+    fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
+        let to_sphere = ray.origin - self.center;
+        let a = ray.dir.length_squared();
+        let half_b = to_sphere.dot(ray.dir);
+        let c = to_sphere.length_squared() - self.radius * self.radius;
+
+        let discriminant = half_b * half_b - a * c;
+        if discriminant < 0.0 {
+            return false;
         }
-        let perp_point = ray.origin + ray.dir * t;
-        let shortest_line = perp_point - self.center;
-        let y = shortest_line.length();
-        if y <= self.radius {
-            let x = (self.radius.powi(2) - y.powi(2)).sqrt();
-            let dist = t - x;
-            Some(dist)
-        } else {
-            None
+
+        let sqrt_d = discriminant.sqrt();
+
+        // Find the nearest root that lies in the acceptable range.
+        let mut root = (-half_b - sqrt_d) / a;
+        if root < ray_tmin || ray_tmax < root {
+            root = (-half_b + sqrt_d) / a;
+            if root < ray_tmin || ray_tmax < root {
+                return false;
+            }
         }
+
+        hit_record.t = root;
+        hit_record.p = ray.at(root);
+        let outward_normal = (hit_record.p - self.center) / self.radius;
+        hit_record.set_face_normal(ray, outward_normal);
+
+        true
     }
 
     fn get_normal(&self, hit_pos: Vec3) -> Vec3 {
@@ -78,18 +93,18 @@ impl Quad {
     }
 }
 impl Shape for Quad {
-    fn intersects(&self, ray: &Ray) -> Option<f32> {
+    fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
         let denominator = self.normal.dot(ray.dir);
         if denominator.abs() < 1e-6 {
             // Ray is parallel to the quad's plane
-            return None;
+            return false;
         }
 
         let v = self.point - ray.origin;
         let t = v.dot(self.normal) / denominator;
         if t < 0.0 {
             // The intersection is behind the ray's origin
-            return None;
+            return false;
         }
 
         let hit_point = ray.origin + ray.dir * t;
@@ -101,9 +116,14 @@ impl Shape for Quad {
         let edge1_length_sq = self.edge1.length_squared();
         let edge2_length_sq = self.edge2.length_squared();
         if dot1 >= 0.0 && dot1 <= edge1_length_sq && dot2 >= 0.0 && dot2 <= edge2_length_sq {
-            Some(t) // hit
+            // hit
+            hit_record.t = t;
+            hit_record.p = hit_point;
+            hit_record.set_face_normal(ray, self.normal);
+
+            true
         } else {
-            None // miss
+            false // miss
         }
     }
 
@@ -133,17 +153,21 @@ impl Plane {
 }
 
 impl Shape for Plane {
-    fn intersects(&self, ray: &Ray) -> Option<f32> {
+    fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
         let denom = self.normal.dot(ray.dir);
         if denom.abs() > 1e-6 {
             // Check not parallel (not zero)
             let v = self.point - ray.origin;
             let distance = v.dot(self.normal) / denom;
             if distance >= 0.0 {
-                return Some(distance);
+                hit_record.t = distance;
+                hit_record.p = ray.at(distance);
+                hit_record.set_face_normal(ray, self.normal);
+
+                return true;
             }
         }
-        None
+        false
     }
 
     fn get_normal(&self, _hit_pos: Vec3) -> Vec3 {

@@ -14,6 +14,10 @@ impl Ray {
             dir: dir.normalize(),
         }
     }
+
+    pub fn at(&self, t: f32) -> Vec3 {
+        self.origin + t * self.dir
+    }
 }
 
 #[derive(Clone)]
@@ -25,5 +29,39 @@ pub struct Light {
 impl Light {
     pub fn new(pos: Vec3, color: Vec3) -> Light {
         Light { pos, color }
+    }
+}
+
+#[derive(Clone)]
+pub struct HitRecord {
+    pub p: Vec3,
+    pub normal: Vec3,
+    pub t: f32,
+    pub front_face: bool,
+}
+
+impl HitRecord {
+    pub fn new() -> HitRecord {
+        HitRecord {
+            p: Vec3::ZERO,
+            normal: Vec3::ZERO,
+            t: 0.0,
+            front_face: false,
+        }
+    }
+
+    pub fn set_face_normal(&mut self, r: &Ray, outward_normal: Vec3) {
+        self.front_face = r.dir.dot(outward_normal) < 0.0;
+        self.normal = if self.front_face {
+            outward_normal
+        } else {
+            -outward_normal
+        };
+    }
+}
+
+impl Default for HitRecord {
+    fn default() -> Self {
+        Self::new()
     }
 }

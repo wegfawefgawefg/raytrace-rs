@@ -24,7 +24,7 @@ pub fn generate_image(
         psb(&mut scene, 1, 0);
     }
 
-    let pixels = crate::rendering::render_scene(&scene, resolution, 5, true);
+    let pixels = crate::rendering::render_scene(&scene, resolution, 6, true);
 
     write_as_png("output", &pixels, resolution.x as u32, resolution.y as u32)
         .expect("Failed to write PNG file");
