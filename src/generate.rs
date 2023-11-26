@@ -10,6 +10,9 @@ pub type ProceduralSceneBuilder = fn(&mut Scene, u32, u32);
 
 pub fn generate_image(
     resolution: IVec2,
+    num_samples_per_pixel: u32,
+    rng_seed: [u8; 32],
+
     scene_builders: Vec<SceneBuilder>,
     procedural_scene_builders: Vec<ProceduralSceneBuilder>,
 ) {
@@ -24,7 +27,14 @@ pub fn generate_image(
         psb(&mut scene, 1, 0);
     }
 
-    let pixels = crate::rendering::render_scene(&scene, resolution, 10, true);
+    let pixels = crate::rendering::render_scene(
+        &scene,
+        resolution,
+        num_samples_per_pixel,
+        6,
+        rng_seed,
+        true,
+    );
 
     write_as_png("output", &pixels, resolution.x as u32, resolution.y as u32)
         .expect("Failed to write PNG file");
@@ -33,6 +43,9 @@ pub fn generate_image(
 pub fn generate_animation(
     resolution: IVec2,
     num_frames: u32,
+    num_samples_per_pixel: u32,
+    rng_seed: [u8; 32],
+
     pre_scene_builders: Vec<SceneBuilder>,
     procedural_scene_builders: Vec<ProceduralSceneBuilder>,
 ) {
@@ -56,8 +69,14 @@ pub fn generate_animation(
             psb(&mut scene, num_frames, frame);
         }
 
-        let pixels = render_scene(&scene, resolution, 6, true);
-
+        let pixels = crate::rendering::render_scene(
+            &scene,
+            resolution,
+            num_samples_per_pixel,
+            6,
+            rng_seed,
+            true,
+        );
         // save rendered  frame
         let path = format!("animation/{}", frame);
         write_as_png(&path, &pixels, resolution.x as u32, resolution.y as u32)

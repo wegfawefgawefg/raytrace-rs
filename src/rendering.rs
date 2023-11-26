@@ -1,3 +1,7 @@
+use rand::rngs::SmallRng;
+use rand::Rng;
+use rand::SeedableRng;
+
 use glam::{IVec2, Vec3};
 use indicatif::ProgressBar;
 use rayon::prelude::*;
@@ -6,13 +10,16 @@ use crate::{
     scene::{Cam, Scene},
     shapes::Shape,
     structures::{HitRecord, Ray},
+    utils::random_vector_in_unit_disk,
 };
 
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene(
     scene: &Scene,
     resolution: IVec2,
+    num_samples_per_pixel: u32,
     max_bounces: u32,
+    rng_seed: [u8; 32],
     multithreaded: bool,
 ) -> Vec<Vec<Vec3>> {
     let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
@@ -37,7 +44,9 @@ pub fn render_scene(
         render_scene_inner(
             scene,
             resolution,
+            num_samples_per_pixel,
             max_bounces,
+            rng_seed,
             viewport_top_left,
             target_right_step,
             target_down_step,
@@ -46,7 +55,9 @@ pub fn render_scene(
         render_scene_inner_multithreaded(
             scene,
             resolution,
+            num_samples_per_pixel,
             max_bounces,
+            rng_seed,
             viewport_top_left,
             target_right_step,
             target_down_step,
@@ -58,13 +69,16 @@ pub fn render_scene(
 pub fn render_scene_inner(
     scene: &Scene,
     resolution: IVec2,
+    num_samples_per_pixel: u32,
     max_bounces: u32,
+    rng_seed: [u8; 32],
 
     viewport_top_left: Vec3,
     target_right_step: Vec3,
     target_down_step: Vec3,
 ) -> Vec<Vec<Vec3>> {
     let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
+    let mut rng = SmallRng::from_seed(rng_seed); //rng.gen::<f32>()
 
     let pb = ProgressBar::new(resolution.x as u64);
     for y in 0..(resolution.y as usize) {
@@ -72,8 +86,25 @@ pub fn render_scene_inner(
             let target = viewport_top_left
                 + (target_right_step * (x as f32))
                 + (target_down_step * (y as f32));
-            let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
-            pixels[y][x] = raytrace(&ray, scene, max_bounces, 0);
+
+            let color = if num_samples_per_pixel == 1 {
+                let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
+                raytrace(&ray, scene, max_bounces, 0)
+            } else {
+                let mut color = Vec3::ZERO;
+
+                for _ in 0..num_samples_per_pixel {
+                    let random_offset = random_vector_in_unit_disk(&mut rng);
+                    let scaled_offset =
+                        random_offset.x * target_right_step + random_offset.y * target_down_step;
+                    let starting_position = scene.cam.pos + scaled_offset;
+                    let ray = Ray::new(starting_position, target - scene.cam.pos);
+                    color += raytrace(&ray, scene, max_bounces, 0);
+                }
+                color /= num_samples_per_pixel as f32;
+                color
+            };
+            pixels[y][x] = color;
         }
         pb.inc(1);
     }
@@ -86,7 +117,9 @@ pub fn render_scene_inner(
 pub fn render_scene_inner_multithreaded(
     scene: &Scene,
     resolution: IVec2,
+    num_samples_per_pixel: u32,
     max_bounces: u32,
+    rng_seed: [u8; 32],
 
     viewport_top_left: Vec3,
     target_right_step: Vec3,
@@ -95,13 +128,31 @@ pub fn render_scene_inner_multithreaded(
     let pixels: Vec<Vec<Vec3>> = (0..resolution.y as usize)
         .into_par_iter() // Parallel iterator over the rows
         .map(|y| {
+            let mut rng = SmallRng::from_seed(rng_seed); //rng.gen::<f32>()
             let mut row = Vec::with_capacity(resolution.x as usize);
             for x in 0..resolution.x as usize {
                 let target = viewport_top_left
                     + (target_right_step * (x as f32))
                     + (target_down_step * (y as f32));
-                let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
-                row.push(raytrace(&ray, scene, max_bounces, 0));
+
+                let color = if num_samples_per_pixel == 1 {
+                    let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
+                    raytrace(&ray, scene, max_bounces, 0)
+                } else {
+                    let mut color = Vec3::ZERO;
+
+                    for _ in 0..num_samples_per_pixel {
+                        let random_offset = random_vector_in_unit_disk(&mut rng);
+                        let scaled_offset = random_offset.x * target_right_step
+                            + random_offset.y * target_down_step;
+                        let starting_position = scene.cam.pos + scaled_offset;
+                        let ray = Ray::new(starting_position, target - scene.cam.pos);
+                        color += raytrace(&ray, scene, max_bounces, 0);
+                    }
+                    color /= num_samples_per_pixel as f32;
+                    color
+                };
+                row.push(color);
             }
             row
         })

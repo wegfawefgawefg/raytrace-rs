@@ -29,7 +29,7 @@ fn main() {
         IVec2 { x: 3840, y: 2160 }, //7
         IVec2 { x: 7680, y: 4320 },
     ];
-    let resolution = resolutions[4];
+    let resolution = resolutions[3];
     println!("Resolution: {:?}", resolution);
     let time = std::time::Instant::now();
 
@@ -57,13 +57,30 @@ fn main() {
 
     //////////////////////// CAMERA ZONE ////////////////////////
     // procedural_scene_builders.push(scenes::animated::orbit_camera);
+
     procedural_scene_builders.push(scenes::animated::pidgeon_camera);
 
-    // let resolution = resolutions[4];
-    // generate_image(resolution, scene_builders, procedural_scene_builders);
+    let samps = 1;
+    let rng_seed = [0u8; 32];
 
-    let resolution = resolutions[2];
-    generate::generate_animation(resolution, 240, scene_builders, procedural_scene_builders);
+    let resolution = resolutions[4];
+    generate_image(
+        resolution,
+        samps,
+        rng_seed,
+        scene_builders,
+        procedural_scene_builders,
+    );
+
+    // let resolution = resolutions[2];
+    // generate::generate_animation(
+    //     resolution,
+    //     240,
+    //     samps,
+    //     rng_seed,
+    //     scene_builders,
+    //     procedural_scene_builders,
+    // );
 
     println!("Time elapsed: {:?}", time.elapsed());
 }

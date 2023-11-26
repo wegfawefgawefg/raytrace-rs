@@ -41,7 +41,7 @@ pub fn quad_light(scene: &mut Scene) {
 
 pub fn some_random_lights(scene: &mut Scene) {
     let seed = [0u8; 32]; // All zeros
-    let mut rng = SmallRng::from_seed(seed);
+    let mut rng = SmallRng::from_seed(seed); //rng.gen::<f32>()
 
     for _ in 0..3 {
         let light = Light::new(
