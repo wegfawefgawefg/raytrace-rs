@@ -1,9 +1,13 @@
+use either::Either;
+use indicatif::ProgressIterator;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 
 use glam::{IVec2, Vec3};
+use indicatif::ParallelProgressIterator;
 use indicatif::ProgressBar;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rayon::prelude::*;
 
 use crate::{
@@ -21,6 +25,8 @@ pub fn render_scene(
     max_bounces: u32,
     rng_seed: [u8; 32],
     multithreaded: bool,
+
+    use_progress_bar: bool,
 ) -> Vec<Vec<Vec3>> {
     let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
 
@@ -50,6 +56,7 @@ pub fn render_scene(
             viewport_top_left,
             target_right_step,
             target_down_step,
+            use_progress_bar,
         )
     } else {
         render_scene_inner_multithreaded(
@@ -61,10 +68,12 @@ pub fn render_scene(
             viewport_top_left,
             target_right_step,
             target_down_step,
+            use_progress_bar,
         )
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene_inner(
     scene: &Scene,
@@ -76,12 +85,20 @@ pub fn render_scene_inner(
     viewport_top_left: Vec3,
     target_right_step: Vec3,
     target_down_step: Vec3,
+
+    use_progress_bar: bool,
 ) -> Vec<Vec<Vec3>> {
     let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
     let mut rng = SmallRng::from_seed(rng_seed); //rng.gen::<f32>()
 
-    let pb = ProgressBar::new(resolution.x as u64);
-    for y in 0..(resolution.y as usize) {
+    let row_iter = (0..resolution.y as usize).into_iter();
+    let row_iter_with_maybe_progress_bar = if use_progress_bar {
+        Either::Left(row_iter.progress())
+    } else {
+        Either::Right(row_iter)
+    };
+
+    row_iter_with_maybe_progress_bar.map(|y| {
         for x in 0..(resolution.x as usize) {
             let target = viewport_top_left
                 + (target_right_step * (x as f32))
@@ -106,13 +123,12 @@ pub fn render_scene_inner(
             };
             pixels[y][x] = color;
         }
-        pb.inc(1);
-    }
-    pb.finish_with_message("Rendering complete");
+    });
 
     pixels
 }
 
+#[allow(clippy::too_many_arguments)]
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene_inner_multithreaded(
     scene: &Scene,
@@ -124,9 +140,17 @@ pub fn render_scene_inner_multithreaded(
     viewport_top_left: Vec3,
     target_right_step: Vec3,
     target_down_step: Vec3,
+
+    use_progress_bar: bool,
 ) -> Vec<Vec<Vec3>> {
-    let pixels: Vec<Vec<Vec3>> = (0..resolution.y as usize)
-        .into_par_iter() // Parallel iterator over the rows
+    let row_iter = (0..resolution.y as usize).into_par_iter();
+    let row_iter_with_maybe_progress_bar = if use_progress_bar {
+        Either::Left(row_iter.progress_count(resolution.y as u64))
+    } else {
+        Either::Right(row_iter)
+    };
+
+    let pixels: Vec<Vec<Vec3>> = row_iter_with_maybe_progress_bar
         .map(|y| {
             let mut rng = SmallRng::from_seed(rng_seed); //rng.gen::<f32>()
             let mut row = Vec::with_capacity(resolution.x as usize);
@@ -134,6 +158,7 @@ pub fn render_scene_inner_multithreaded(
                 let target = viewport_top_left
                     + (target_right_step * (x as f32))
                     + (target_down_step * (y as f32));
+                // .progress_count(resolution.y as u64)
 
                 let color = if num_samples_per_pixel == 1 {
                     let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
@@ -154,34 +179,10 @@ pub fn render_scene_inner_multithreaded(
                 };
                 row.push(color);
             }
+
             row
         })
         .collect(); // Collect rows into a vector of rows
-    pixels
-}
-
-#[allow(clippy::needless_range_loop)]
-pub fn render_scene_inner_no_progress_bar(
-    scene: &Scene,
-    resolution: IVec2,
-    max_bounces: u32,
-
-    viewport_top_left: Vec3,
-    target_right_step: Vec3,
-    target_down_step: Vec3,
-) -> Vec<Vec<Vec3>> {
-    let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
-
-    for y in 0..(resolution.y as usize) {
-        for x in 0..(resolution.x as usize) {
-            let target = viewport_top_left
-                + (target_right_step * (x as f32))
-                + (target_down_step * (y as f32));
-            let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
-            pixels[y][x] = raytrace(&ray, scene, max_bounces, 0);
-        }
-    }
-
     pixels
 }
 

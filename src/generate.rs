@@ -34,6 +34,7 @@ pub fn generate_image(
         6,
         rng_seed,
         true,
+        true,
     );
 
     write_as_png("output", &pixels, resolution.x as u32, resolution.y as u32)
@@ -76,6 +77,7 @@ pub fn generate_animation(
             6,
             rng_seed,
             true,
+            false,
         );
         // save rendered  frame
         let path = format!("animation/{}", frame);

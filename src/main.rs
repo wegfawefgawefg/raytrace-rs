@@ -29,7 +29,7 @@ fn main() {
         IVec2 { x: 3840, y: 2160 }, //7
         IVec2 { x: 7680, y: 4320 },
     ];
-    let resolution = resolutions[3];
+    let resolution = resolutions[7];
     println!("Resolution: {:?}", resolution);
     let time = std::time::Instant::now();
 
@@ -43,44 +43,41 @@ fn main() {
     // scene_builders.push(scenes::fixed::light_box);
     // scene_builders.push(scenes::fixed::centered_ball);
     scene_builders.push(scenes::fixed::quad_light);
-    scene_builders.push(scenes::fixed::test_balls);
+    // scene_builders.push(scenes::fixed::test_balls);
     // scene_builders.push(scenes::fixed::matte_floor);
-    scene_builders.push(scenes::fixed::checkered_floor);
+    // scene_builders.push(scenes::fixed::checkered_floor);
     // scene_builders.push(scenes::fixed::raised_cam);
-    scene_builders.push(scenes::fixed::shifted_cam);
+    // scene_builders.push(scenes::fixed::shifted_cam);
 
-    // scene_builders.push(scenes::fixed::set_cam);
+    scene_builders.push(scenes::fixed::set_cam);
     // scene_builders.push(scenes::fixed::some_random_balls);
     // scene_builders.push(scenes::fixed::scene_4);
 
-    // procedural_scene_builders.push(scenes::animated::interweaved_xbox_spinny);
+    procedural_scene_builders.push(scenes::animated::interweaved_xbox_spinny);
 
     //////////////////////// CAMERA ZONE ////////////////////////
     // procedural_scene_builders.push(scenes::animated::orbit_camera);
-
-    procedural_scene_builders.push(scenes::animated::pidgeon_camera);
+    // procedural_scene_builders.push(scenes::animated::pidgeon_camera);
 
     let samps = 1;
     let rng_seed = [0u8; 32];
 
-    let resolution = resolutions[4];
-    generate_image(
-        resolution,
-        samps,
-        rng_seed,
-        scene_builders,
-        procedural_scene_builders,
-    );
-
-    // let resolution = resolutions[2];
-    // generate::generate_animation(
+    // generate_image(
     //     resolution,
-    //     240,
     //     samps,
     //     rng_seed,
     //     scene_builders,
     //     procedural_scene_builders,
     // );
+
+    generate::generate_animation(
+        resolution,
+        120,
+        samps,
+        rng_seed,
+        scene_builders,
+        procedural_scene_builders,
+    );
 
     println!("Time elapsed: {:?}", time.elapsed());
 }
