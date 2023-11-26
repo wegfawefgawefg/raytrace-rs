@@ -94,18 +94,24 @@ pub fn test_balls(scene: &mut Scene) {
         Box::new(BasicMaterial::new(
             Vec3::new(255.0, 255.0, 255.0),
             0.0,
+            0.02,
             0.01,
-            0.01,
-            0.01,
+            0.1,
             1.0,
-            0.5,
+            2.0,
+            // 0.0,
+            // 0.05,
+            // 0.05,
+            // 1.0,
+            // 0.0,
+            // 0.0,
         )),
     )));
 
     // behind left
     scene.shapes.push(Box::new(Sphere::new(
-        Vec3::new(-scene.scale / 5.0, 0.0, scene.scale / 4.0),
-        scene.scale / 4.0,
+        Vec3::new(-scene.scale / 5.0, 0.0, scene.scale / 2.0),
+        scene.scale / 8.0,
         Box::new(BasicMaterial::new(
             Vec3::new(255.0, 100.0, 100.0),
             0.25,
@@ -120,7 +126,7 @@ pub fn test_balls(scene: &mut Scene) {
     // behind right
     scene.shapes.push(Box::new(Sphere::new(
         Vec3::new(scene.scale / 5.0, 0.0, scene.scale / 2.0),
-        scene.scale / 4.0,
+        scene.scale / 8.0,
         Box::new(BasicMaterial::new(
             Vec3::new(100.0, 255.0, 100.0),
             0.25,
@@ -141,7 +147,7 @@ pub fn test_balls(scene: &mut Scene) {
             0.0,
             0.25,
             0.1,
-            0.3,
+            0.7,
             0.0,
             0.0,
         )),
@@ -159,7 +165,7 @@ pub fn infinite_checkered_floor(scene: &mut Scene) {
         basic_material,
     );
     let plane = Plane::new(
-        Vec3::new(0.0, -scene.scale, 0.0),
+        Vec3::new(0.0, -scene.scale - 0.001, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
         Box::new(material),
     );
@@ -173,7 +179,7 @@ pub fn checkered_floor(scene: &mut Scene) {
     let material = CheckerMaterial::new(
         Vec3::new(255.0, 255.0, 255.0),
         Vec3::new(0.0, 0.0, 0.0),
-        scene.scale / 2.0,
+        scene.scale * 2.1,
         basic_material,
     );
 
@@ -356,4 +362,8 @@ pub fn light_box(scene: &mut Scene) {
 
 pub fn raised_cam(scene: &mut Scene) {
     scene.cam.pos.y = scene.scale / 6.0;
+}
+
+pub fn shifted_cam(scene: &mut Scene) {
+    scene.cam.pos.x += scene.scale / 20.0;
 }

@@ -26,10 +26,10 @@ fn main() {
             x: 1920 * 2,
             y: 2160,
         },
-        IVec2 { x: 3840, y: 2160 },
+        IVec2 { x: 3840, y: 2160 }, //7
         IVec2 { x: 7680, y: 4320 },
     ];
-    let resolution = resolutions[3];
+    let resolution = resolutions[4];
     println!("Resolution: {:?}", resolution);
     let time = std::time::Instant::now();
 
@@ -46,7 +46,8 @@ fn main() {
     scene_builders.push(scenes::fixed::test_balls);
     // scene_builders.push(scenes::fixed::matte_floor);
     scene_builders.push(scenes::fixed::checkered_floor);
-    scene_builders.push(scenes::fixed::raised_cam);
+    // scene_builders.push(scenes::fixed::raised_cam);
+    scene_builders.push(scenes::fixed::shifted_cam);
 
     // scene_builders.push(scenes::fixed::set_cam);
     // scene_builders.push(scenes::fixed::some_random_balls);
@@ -55,10 +56,13 @@ fn main() {
     // procedural_scene_builders.push(scenes::animated::interweaved_xbox_spinny);
 
     //////////////////////// CAMERA ZONE ////////////////////////
-    procedural_scene_builders.push(scenes::animated::orbit_camera);
-    // procedural_scene_builders.push(scenes::animated::pidgeon_camera);
+    // procedural_scene_builders.push(scenes::animated::orbit_camera);
+    procedural_scene_builders.push(scenes::animated::pidgeon_camera);
 
+    // let resolution = resolutions[4];
     // generate_image(resolution, scene_builders, procedural_scene_builders);
+
+    let resolution = resolutions[2];
     generate::generate_animation(resolution, 240, scene_builders, procedural_scene_builders);
 
     println!("Time elapsed: {:?}", time.elapsed());

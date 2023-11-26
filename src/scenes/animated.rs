@@ -14,12 +14,13 @@ pub fn pidgeon_camera(scene: &mut Scene, num_frames: u32, frame: u32) {
 
     let center = Vec3::ZERO;
 
-    let offset = scene.scale * 1.0;
+    let offset = scene.scale * 0.5;
 
     scene.cam.pos = Vec3::new(
         center.x + t.cos() * offset,
-        center.y + t.sin() * offset,
-        center.z - scene.scale * 2.0,
+        center.y + t.sin() * offset + 0.1,
+        // center.z - scene.scale * 1.0,
+        center.z - scene.scale * 1.0 + t.sin() * offset,
     );
 
     scene.cam.look_at(center);

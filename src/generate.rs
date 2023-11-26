@@ -56,7 +56,7 @@ pub fn generate_animation(
             psb(&mut scene, num_frames, frame);
         }
 
-        let pixels = render_scene(&scene, resolution, 10, true);
+        let pixels = render_scene(&scene, resolution, 6, true);
 
         // save rendered  frame
         let path = format!("animation/{}", frame);

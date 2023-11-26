@@ -157,23 +157,25 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
         None => Vec3::ZERO,
         Some(shape) => {
             let material = shape.material();
-            let hit_pos = ray.at(hit_record.t);
             let hit_normal = hit_record.normal;
+            let hit_pos = ray.at(hit_record.t);
 
             let mut color = Vec3::ZERO;
 
             //////// REFLECTION ////////
             let reflectiveness = material.reflection_at(&hit_pos);
             if reflectiveness > 0.0 {
-                let bounce_dir = ray.dir - 2.0 * ray.dir.dot(hit_normal) * hit_normal;
-                let bounce_ray = Ray::new(hit_pos + hit_normal * 0.001, bounce_dir);
+                let outside = ray.dir.dot(hit_normal) < 0.0; // Check if ray is outside the object
+                let corrected_normal = if outside { hit_normal } else { -hit_normal };
+                let bounce_dir = ray.dir - 2.0 * ray.dir.dot(corrected_normal) * corrected_normal;
+                let bounce_ray = Ray::new(hit_pos + bounce_dir * 0.001, bounce_dir);
                 color += raytrace(&bounce_ray, scene, max_bounces, depth + 1) * reflectiveness;
             }
 
             //////// REFRACTION ////////
             let refractiveness = material.refraction_at(&hit_pos);
             if refractiveness > 0.0 {
-                let outside = ray.dir.dot(hit_normal) > 0.0; // Check if ray is outside the object
+                let outside = ray.dir.dot(hit_normal) < 0.0; // Check if ray is outside the object
                 let corrected_normal = if outside { hit_normal } else { -hit_normal };
                 let refracted_dir = refract(
                     ray.dir,
@@ -183,7 +185,7 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
                 );
 
                 if let Some(refracted_dir) = refracted_dir {
-                    let refracted_ray = Ray::new(hit_pos + corrected_normal * 0.001, refracted_dir);
+                    let refracted_ray = Ray::new(hit_pos + refracted_dir * 0.001, refracted_dir);
                     let refracted_color = raytrace(&refracted_ray, scene, max_bounces, depth + 1);
                     color += refracted_color * refractiveness;
                 }

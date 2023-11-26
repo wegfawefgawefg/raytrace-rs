@@ -96,10 +96,20 @@ impl CheckerMaterial {
         }
     }
 
+    /*
+
+    def color_at(self, u, v, pos):
+        if int((pos.x + 5.0) * 3.0) % 2 == int(pos.z * 3.0) % 2:
+            return self.color_one
+        return self.color_two
+
+     */
+
     fn checker_at(&self, hit_pos: &Vec3) -> Vec3 {
         let s = self.scale;
-        let pattern = (((hit_pos.x / s).floor() + (hit_pos.y / s).floor() + (hit_pos.z / s).floor())
-            as i32)
+        let pattern = ((hit_pos.x * s).floor() as i32
+            + (hit_pos.y * s).floor() as i32
+            + (hit_pos.z * s).floor() as i32)
             % 2;
         if pattern == 0 {
             self.color1
