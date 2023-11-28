@@ -1,9 +1,12 @@
+use glam::Quat;
+use glam::Vec2;
 use glam::Vec3;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 use std::f32::consts::PI;
 
+use crate::material::TexturedMaterial;
 use crate::material::{BasicMaterial, CheckerMaterial};
 use crate::scene::Scene;
 use crate::shapes::Quad;
@@ -80,6 +83,7 @@ pub fn some_random_balls(scene: &mut Scene) {
             ),
             (rng.gen::<f32>() - 0.0) * scene.scale / 8.0 + scene.scale / 16.0,
             Box::new(material),
+            glam::Quat::IDENTITY,
         );
         scene.shapes.push(Box::new(sphere));
     }
@@ -106,6 +110,7 @@ pub fn test_balls(scene: &mut Scene) {
             // 0.0,
             // 0.0,
         )),
+        Quat::IDENTITY,
     )));
 
     // behind left
@@ -121,6 +126,7 @@ pub fn test_balls(scene: &mut Scene) {
             0.0,
             0.0,
         )),
+        glam::Quat::IDENTITY,
     )));
 
     // behind right
@@ -136,6 +142,7 @@ pub fn test_balls(scene: &mut Scene) {
             0.0,
             0.0,
         )),
+        glam::Quat::IDENTITY,
     )));
 
     // up and too the right
@@ -151,6 +158,29 @@ pub fn test_balls(scene: &mut Scene) {
             0.0,
             0.0,
         )),
+        glam::Quat::IDENTITY,
+    )));
+
+    // up and too the left
+    scene.shapes.push(Box::new(Sphere::new(
+        Vec3::new(-scene.scale / 2.0, scene.scale / 3.0, scene.scale / 4.0),
+        scene.scale / 6.0,
+        Box::new(TexturedMaterial::new(
+            // "./assets/kirby.jpg",
+            "/home/vega/Coding/Graphics/raytrace-rs/assets/lroc_color_poles_small.tif",
+            Vec2::ONE / 1.0,
+            false,
+            BasicMaterial::new(
+                Vec3::new(0.0, 0.0, 0.0), //Vec3::new(248.0, 179.0, 182.0)
+                0.0,
+                0.9,
+                0.01,
+                0.01,
+                0.0,
+                0.0,
+            ),
+        )),
+        glam::Quat::IDENTITY,
     )));
 }
 
@@ -186,7 +216,7 @@ pub fn checkered_floor(scene: &mut Scene) {
     let size = scene.scale * 5.0;
 
     let plane = Quad::new(
-        Vec3::new(-size / 2.0, -scene.scale * 0.5, -size / 2.0),
+        Vec3::new(-size / 2.0, -scene.scale / 4.0, -size / 2.0),
         Vec3::new(0.0, 1.0, 0.0),
         Vec3::new(size, 0.0, 0.0),
         Vec3::new(0.0, 0.0, size),
@@ -197,15 +227,7 @@ pub fn checkered_floor(scene: &mut Scene) {
 
 pub fn matte_floor(scene: &mut Scene) {
     // a plane
-    let material = BasicMaterial::new(
-        Vec3::new(255.0, 255.0, 255.0),
-        0.05,
-        0.1,
-        0.01,
-        0.05,
-        0.0,
-        0.0,
-    );
+    let material = BasicMaterial::new(Vec3::new(0.0, 0.0, 255.0), 0.05, 0.1, 0.01, 0.05, 0.0, 0.0);
     let plane = Plane::new(
         Vec3::new(0.0, -scene.scale, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
@@ -242,7 +264,12 @@ pub fn scene_4(scene: &mut Scene) {
             scene.scale / 8.0,
             basic_material,
         );
-        let sphere = Sphere::new(p, scene.scale / 16.0, Box::new(material));
+        let sphere = Sphere::new(
+            p,
+            scene.scale / 16.0,
+            Box::new(material),
+            glam::Quat::IDENTITY,
+        );
         scene.shapes.push(Box::new(sphere));
     }
 
@@ -255,7 +282,12 @@ pub fn scene_4(scene: &mut Scene) {
         scene.scale / 8.0,
         basic_material,
     );
-    let sphere = Sphere::new(Vec3::ZERO, scene.scale / 4.0, Box::new(material));
+    let sphere = Sphere::new(
+        Vec3::ZERO,
+        scene.scale / 4.0,
+        Box::new(material),
+        glam::Quat::IDENTITY,
+    );
     scene.shapes.push(Box::new(sphere));
 }
 
@@ -269,7 +301,12 @@ pub fn centered_ball(scene: &mut Scene) {
         0.0,
         0.0,
     );
-    let sphere = Sphere::new(Vec3::ZERO, scene.scale / 2.0, Box::new(material));
+    let sphere = Sphere::new(
+        Vec3::ZERO,
+        scene.scale / 2.0,
+        Box::new(material),
+        glam::Quat::IDENTITY,
+    );
     scene.shapes.push(Box::new(sphere));
 }
 

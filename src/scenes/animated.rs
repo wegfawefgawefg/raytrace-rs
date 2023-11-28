@@ -94,6 +94,7 @@ pub fn interweaved_xbox_spinny(scene: &mut Scene, num_frames: u32, frame: u32) {
             center: p,
             radius,
             material: material.clone(),
+            orientation: glam::Quat::IDENTITY,
         };
         scene.shapes.push(Box::new(sphere));
     }
@@ -109,6 +110,7 @@ pub fn interweaved_xbox_spinny(scene: &mut Scene, num_frames: u32, frame: u32) {
             center: p,
             radius,
             material: material.clone(),
+            orientation: glam::Quat::IDENTITY,
         };
         scene.shapes.push(Box::new(sphere));
     }

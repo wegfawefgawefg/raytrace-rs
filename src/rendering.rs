@@ -1,4 +1,5 @@
 use either::Either;
+use glam::Vec2;
 use indicatif::ProgressIterator;
 use rand::rngs::SmallRng;
 use rand::Rng;
@@ -192,30 +193,32 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
     }
 
     let mut shape_hit: Option<&Box<dyn Shape>> = None;
-    let mut hit_record = HitRecord::new();
+    let mut closest_hit_record = None;
     let mut closest_so_far = std::f32::INFINITY;
 
     for shape in &scene.shapes {
-        let mut temp_hit_record = HitRecord::new();
-        let hit = shape.hit(ray, 0.001, std::f32::INFINITY, &mut temp_hit_record);
-        if hit && temp_hit_record.t < closest_so_far {
-            shape_hit = Some(shape);
-            hit_record = temp_hit_record;
-            closest_so_far = hit_record.t;
+        if let Some(hit_record) = shape.hit(ray, 0.001, std::f32::INFINITY) {
+            if hit_record.t < closest_so_far {
+                shape_hit = Some(shape);
+                closest_so_far = hit_record.t;
+                closest_hit_record = Some(hit_record);
+            }
         }
     }
 
     match shape_hit {
         None => Vec3::ZERO,
         Some(shape) => {
+            let hit_record = closest_hit_record.unwrap();
             let material = shape.material();
             let hit_normal = hit_record.normal;
             let hit_pos = ray.at(hit_record.t);
+            let uv = shape.get_hit_uv(hit_pos);
 
             let mut color = Vec3::ZERO;
 
             //////// REFLECTION ////////
-            let reflectiveness = material.reflection_at(&hit_pos);
+            let reflectiveness = material.reflection_at(&uv);
             if reflectiveness > 0.0 {
                 let outside = ray.dir.dot(hit_normal) < 0.0; // Check if ray is outside the object
                 let corrected_normal = if outside { hit_normal } else { -hit_normal };
@@ -225,14 +228,14 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
             }
 
             //////// REFRACTION ////////
-            let refractiveness = material.refraction_at(&hit_pos);
+            let refractiveness = material.refraction_at(&uv);
             if refractiveness > 0.0 {
                 let outside = ray.dir.dot(hit_normal) < 0.0; // Check if ray is outside the object
                 let corrected_normal = if outside { hit_normal } else { -hit_normal };
                 let refracted_dir = refract(
                     ray.dir,
                     corrected_normal,
-                    material.refractive_index_at(&hit_pos),
+                    material.refractive_index_at(&uv),
                     outside,
                 );
 
@@ -244,7 +247,7 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
             }
 
             //////// DIRECT LIGHTING ////////
-            color += color_at(scene, ray, shape, &hit_pos, &hit_normal);
+            color += color_at(scene, ray, shape, &hit_pos, &hit_normal, &uv);
 
             color
         }
@@ -273,23 +276,26 @@ pub fn color_at(
     shape_hit: &Box<dyn Shape>,
     hit_pos: &Vec3,
     hit_normal: &Vec3,
+    uv: &Vec2,
 ) -> Vec3 {
     let material = shape_hit.material();
-    let mut color = material.color_at(hit_pos) * material.ambient_at(hit_pos);
+
+    // Ambient lighting
+    let mut color = material.color_at(uv) * material.ambient_at(uv);
 
     for light in &scene.lights {
         let to_light = (light.pos - *hit_pos).normalize();
         let to_cam = (scene.cam.pos - *hit_pos).normalize();
 
-        // Diffuse lighting model
-        color += material.color_at(hit_pos)
-            * material.diffuse_at(hit_pos)
+        // Diffuse lighting
+        color += material.color_at(uv)
+            * material.diffuse_at(uv)
             * f32::max(hit_normal.dot(to_light), 0.0);
 
-        // Specular lighting model
+        // Specular lighting
         let halfway = (to_light + to_cam).normalize();
         color += light.color
-            * material.specular_at(hit_pos)
+            * material.specular_at(uv)
             * f32::max(hit_normal.dot(halfway), 0.0).powi(30);
     }
 

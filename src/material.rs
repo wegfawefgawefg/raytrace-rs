@@ -1,13 +1,16 @@
-use glam::Vec3;
+use image::{DynamicImage, GenericImageView};
+use std::sync::Arc;
+
+use glam::{Vec2, Vec3};
 
 pub trait Material: Sync {
-    fn color_at(&self, hit_pos: &Vec3) -> Vec3;
-    fn ambient_at(&self, hit_pos: &Vec3) -> f32;
-    fn diffuse_at(&self, hit_pos: &Vec3) -> f32;
-    fn specular_at(&self, hit_pos: &Vec3) -> f32;
-    fn reflection_at(&self, hit_pos: &Vec3) -> f32;
-    fn refraction_at(&self, hit_pos: &Vec3) -> f32;
-    fn refractive_index_at(&self, hit_pos: &Vec3) -> f32;
+    fn color_at(&self, uv: &Vec2) -> Vec3;
+    fn ambient_at(&self, uv: &Vec2) -> f32;
+    fn diffuse_at(&self, uv: &Vec2) -> f32;
+    fn specular_at(&self, uv: &Vec2) -> f32;
+    fn reflection_at(&self, uv: &Vec2) -> f32;
+    fn refraction_at(&self, uv: &Vec2) -> f32;
+    fn refractive_index_at(&self, uv: &Vec2) -> f32;
 }
 
 #[derive(Clone)]
@@ -44,31 +47,31 @@ impl BasicMaterial {
 }
 
 impl Material for BasicMaterial {
-    fn color_at(&self, _hit_pos: &Vec3) -> Vec3 {
+    fn color_at(&self, _uv: &Vec2) -> Vec3 {
         self.color
     }
 
-    fn ambient_at(&self, _hit_pos: &Vec3) -> f32 {
+    fn ambient_at(&self, _uv: &Vec2) -> f32 {
         self.ambient
     }
 
-    fn diffuse_at(&self, _hit_pos: &Vec3) -> f32 {
+    fn diffuse_at(&self, _uv: &Vec2) -> f32 {
         self.diffuse
     }
 
-    fn specular_at(&self, _hit_pos: &Vec3) -> f32 {
+    fn specular_at(&self, _uv: &Vec2) -> f32 {
         self.specular
     }
 
-    fn reflection_at(&self, _hit_pos: &Vec3) -> f32 {
+    fn reflection_at(&self, _uv: &Vec2) -> f32 {
         self.reflection
     }
 
-    fn refraction_at(&self, _hit_pos: &Vec3) -> f32 {
+    fn refraction_at(&self, _uv: &Vec2) -> f32 {
         self.refraction
     }
 
-    fn refractive_index_at(&self, _hit_pos: &Vec3) -> f32 {
+    fn refractive_index_at(&self, _uv: &Vec2) -> f32 {
         self.refractive_index
     }
 }
@@ -96,21 +99,9 @@ impl CheckerMaterial {
         }
     }
 
-    /*
-
-    def color_at(self, u, v, pos):
-        if int((pos.x + 5.0) * 3.0) % 2 == int(pos.z * 3.0) % 2:
-            return self.color_one
-        return self.color_two
-
-     */
-
-    fn checker_at(&self, hit_pos: &Vec3) -> Vec3 {
+    fn checker_at(&self, uv: &Vec2) -> Vec3 {
         let s = self.scale;
-        let pattern = ((hit_pos.x * s).floor() as i32
-            + (hit_pos.y * s).floor() as i32
-            + (hit_pos.z * s).floor() as i32)
-            % 2;
+        let pattern = ((uv.x * s).floor() as i32 + (uv.y * s).floor() as i32) % 2;
         if pattern == 0 {
             self.color1
         } else {
@@ -120,31 +111,118 @@ impl CheckerMaterial {
 }
 
 impl Material for CheckerMaterial {
-    fn color_at(&self, hit_pos: &Vec3) -> Vec3 {
-        self.checker_at(hit_pos)
+    fn color_at(&self, uv: &Vec2) -> Vec3 {
+        self.checker_at(uv)
     }
 
-    fn ambient_at(&self, hit_pos: &Vec3) -> f32 {
-        self.basic_material.ambient_at(hit_pos)
+    fn ambient_at(&self, uv: &Vec2) -> f32 {
+        self.basic_material.ambient_at(uv)
     }
 
-    fn diffuse_at(&self, hit_pos: &Vec3) -> f32 {
-        self.basic_material.diffuse_at(hit_pos)
+    fn diffuse_at(&self, uv: &Vec2) -> f32 {
+        self.basic_material.diffuse_at(uv)
     }
 
-    fn specular_at(&self, hit_pos: &Vec3) -> f32 {
-        self.basic_material.specular_at(hit_pos)
+    fn specular_at(&self, uv: &Vec2) -> f32 {
+        self.basic_material.specular_at(uv)
     }
 
-    fn reflection_at(&self, hit_pos: &Vec3) -> f32 {
-        self.basic_material.reflection_at(hit_pos)
+    fn reflection_at(&self, uv: &Vec2) -> f32 {
+        self.basic_material.reflection_at(uv)
     }
 
-    fn refraction_at(&self, _hit_pos: &Vec3) -> f32 {
+    fn refraction_at(&self, _uv: &Vec2) -> f32 {
         self.basic_material.refraction
     }
 
-    fn refractive_index_at(&self, _hit_pos: &Vec3) -> f32 {
+    fn refractive_index_at(&self, _uv: &Vec2) -> f32 {
+        self.basic_material.refractive_index
+    }
+}
+
+#[derive(Clone)]
+pub struct TexturedMaterial {
+    texture: Arc<DynamicImage>,
+    scale: Vec2,
+    wrap: bool,
+    basic_material: BasicMaterial,
+}
+
+impl TexturedMaterial {
+    pub fn new(
+        texture_path: &str,
+        scale: Vec2,
+        wrap: bool,
+        basic_material: BasicMaterial,
+    ) -> TexturedMaterial {
+        let texture = image::open(texture_path).expect("Failed to load texture");
+
+        TexturedMaterial {
+            texture: Arc::new(texture),
+            scale,
+            wrap,
+            basic_material,
+        }
+    }
+
+    // fn color_at(&self, uv: &Vec2) -> Vec3 {
+    //     let (width, height) = self.texture.dimensions();
+    //     let x = (uv.x.clamp(0.0, 1.0) * width as f32) as u32;
+    //     let y = (uv.y.clamp(0.0, 1.0) * height as f32) as u32;
+
+    //     let pixel = self.texture.get_pixel(x, y);
+    //     Vec3::new(pixel[0] as f32, pixel[1] as f32, pixel[2] as f32)
+    // }
+
+    fn color_at(&self, uv: &Vec2) -> Vec3 {
+        // Scale the UV coordinates
+        let scaled_uv = Vec2::new(uv.x / self.scale.x, uv.y / self.scale.y);
+
+        // Apply wrapping by using modulo operation
+        // Check if UV is out of bounds and wrap is false
+        if !self.wrap
+            && (scaled_uv.x < 0.0 || scaled_uv.x > 1.0 || scaled_uv.y < 0.0 || scaled_uv.y > 1.0)
+        {
+            return self.basic_material.color_at(uv);
+        }
+
+        let (width, height) = self.texture.dimensions();
+        let x = ((scaled_uv.x * width as f32).rem_euclid(width as f32)) as u32;
+        let y = ((scaled_uv.y * height as f32).rem_euclid(height as f32)) as u32;
+
+        let pixel = self.texture.get_pixel(x, y);
+        // reconsider the value scales here
+        Vec3::new(pixel[0] as f32, pixel[1] as f32, pixel[2] as f32)
+    }
+}
+
+impl Material for TexturedMaterial {
+    fn color_at(&self, uv: &Vec2) -> Vec3 {
+        self.color_at(uv)
+    }
+
+    // default to basic_material for other unsampled material properties
+    fn ambient_at(&self, uv: &Vec2) -> f32 {
+        self.basic_material.ambient_at(uv)
+    }
+
+    fn diffuse_at(&self, uv: &Vec2) -> f32 {
+        self.basic_material.diffuse_at(uv)
+    }
+
+    fn specular_at(&self, uv: &Vec2) -> f32 {
+        self.basic_material.specular_at(uv)
+    }
+
+    fn reflection_at(&self, uv: &Vec2) -> f32 {
+        self.basic_material.reflection_at(uv)
+    }
+
+    fn refraction_at(&self, _uv: &Vec2) -> f32 {
+        self.basic_material.refraction
+    }
+
+    fn refractive_index_at(&self, _uv: &Vec2) -> f32 {
         self.basic_material.refractive_index
     }
 }
