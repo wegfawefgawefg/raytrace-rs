@@ -89,6 +89,28 @@ pub fn some_random_balls(scene: &mut Scene) {
     }
 }
 
+pub fn sky_sphere(scene: &mut Scene) {
+    let basic_material =
+        BasicMaterial::new(Vec3::new(255.0, 0.0, 0.0), 1.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+    let material = TexturedMaterial::new(
+        "./assets/skysphere.jpg",
+        Vec2::ONE * 0.6,
+        true,
+        basic_material,
+    );
+
+    // center
+    scene.shapes.push(Box::new(Sphere::new(
+        Vec3::new(0.0, scene.scale * 20.0, 0.0),
+        // Vec3::ZERO,
+        scene.scale * 100.0,
+        Box::new(material),
+        // shift down
+        Quat::IDENTITY,
+        // Quat::from_rotation_x(std::f32::consts::PI / 6.0),
+    )));
+}
+
 pub fn test_balls(scene: &mut Scene) {
     // center
     scene.shapes.push(Box::new(Sphere::new(
@@ -209,7 +231,31 @@ pub fn checkered_floor(scene: &mut Scene) {
     let material = CheckerMaterial::new(
         Vec3::new(255.0, 255.0, 255.0),
         Vec3::new(0.0, 0.0, 0.0),
-        scene.scale * 2.1,
+        scene.scale * 8.0,
+        basic_material,
+    );
+
+    let size = scene.scale * 5.0;
+
+    let plane = Quad::new(
+        Vec3::new(-size / 2.0, -scene.scale * 2.0, -size / 2.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        Vec3::new(size, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, size),
+        Box::new(material),
+    );
+    scene.shapes.push(Box::new(plane));
+}
+
+pub fn textured_floor(scene: &mut Scene) {
+    // a plane
+    let basic_material =
+        BasicMaterial::new(Vec3::new(255.0, 0.0, 0.0), 0.05, 0.5, 0.8, 1.0, 0.0, 0.0);
+    let material = TexturedMaterial::new(
+        "./assets/kirby.jpg",
+        // "/home/vega/Coding/Graphics/raytrace-rs/assets/lroc_color_poles_small.tif",
+        Vec2::ONE / 1.0,
+        false,
         basic_material,
     );
 

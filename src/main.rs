@@ -42,7 +42,10 @@ fn main() {
     scene_builders.push(scenes::fixed::quad_light);
     scene_builders.push(scenes::fixed::test_balls);
     scene_builders.push(scenes::fixed::checkered_floor);
-    scene_builders.push(scenes::fixed::matte_floor);
+    // scene_builders.push(scenes::fixed::textured_floor);
+    // scene_builders.push(scenes::fixed::matte_floor);
+
+    scene_builders.push(scenes::fixed::sky_sphere);
     // scene_builders.push(scenes::fixed::infinite_checkered_floor);
     // scene_builders.push(scenes::fixed::raised_cam);
     // scene_builders.push(scenes::fixed::shifted_cam);
@@ -62,25 +65,25 @@ fn main() {
     println!("Resolution: {:?}", resolution);
     let time = std::time::Instant::now();
 
-    let samps = 1;
+    let samps = 8;
     let rng_seed = [0u8; 32];
 
-    generate_image(
-        resolution,
-        samps,
-        rng_seed,
-        scene_builders,
-        procedural_scene_builders,
-    );
-
-    // generate::generate_animation(
+    // generate_image(
     //     resolution,
-    //     120,
     //     samps,
     //     rng_seed,
     //     scene_builders,
     //     procedural_scene_builders,
     // );
+
+    generate::generate_animation(
+        resolution,
+        240,
+        samps,
+        rng_seed,
+        scene_builders,
+        procedural_scene_builders,
+    );
 
     println!("Time elapsed: {:?}", time.elapsed());
 }
