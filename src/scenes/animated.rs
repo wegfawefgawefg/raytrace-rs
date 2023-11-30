@@ -29,17 +29,18 @@ pub fn pidgeon_camera(scene: &mut Scene, num_frames: u32, frame: u32) {
 pub fn orbit_camera(scene: &mut Scene, num_frames: u32, frame: u32) {
     let start_time = 0.0;
     let end_time = PI * 2.0;
+    // let end_time = PI * 0.5;
     let interval = (end_time - start_time) / num_frames as f32;
 
     let t = start_time + frame as f32 * interval;
 
     let center = Vec3::ZERO;
 
-    let orbit_offset = scene.scale * 1.0;
+    let orbit_offset = scene.scale * 1.5;
 
     scene.cam.pos = Vec3::new(
         center.x + t.cos() * orbit_offset,
-        center.y,
+        center.y + scene.scale * 0.5,
         center.z + t.sin() * orbit_offset,
     );
 
@@ -67,24 +68,17 @@ pub fn interweaved_xbox_spinny(scene: &mut Scene, num_frames: u32, frame: u32) {
     // lets make a sphere go around in a circle around the center of the screen
     let offset = scene.scale / 4.0;
     let scene_center = Vec3::ZERO;
-    // let material = Box::new(BasicMaterial::new(
-    //     Vec3::new(255.0, 0.0, 0.0),
-    //     0.05,
-    //     0.5,
-    //     0.8,
-    //     1.0,
-    //     0.0,
-    //     0.0,
-    // ));
-    let material = Box::new(BasicMaterial::new(
-        Vec3::new(255.0, 0.0, 255.0),
-        0.00,
-        0.2,
-        0.5,
-        1.0,
-        0.5,
-        0.85,
-    ));
+    let material = Box::new(
+        BasicMaterial::builder()
+            .color(Vec3::new(255.0, 0.0, 255.0))
+            .ambient(0.00)
+            .diffuse(0.2)
+            .specular(0.5)
+            .reflection(1.0)
+            .roughness(0.5)
+            .refraction(0.85)
+            .build(),
+    );
     for k in 0..6 {
         let tt = t - (PI / 3.0 * k as f32);
         let offset_x_mod = tt.cos() * offset;

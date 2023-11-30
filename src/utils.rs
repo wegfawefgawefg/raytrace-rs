@@ -23,6 +23,15 @@ pub fn random_vector_in_unit_sphere(rng: &mut SmallRng) -> Vec3 {
     }
 }
 
+pub fn random_vector_in_hemisphere(normal: Vec3, rng: &mut SmallRng) -> Vec3 {
+    let in_unit_sphere = random_vector_in_unit_sphere(rng);
+    if in_unit_sphere.dot(normal) > 0.0 {
+        in_unit_sphere
+    } else {
+        -in_unit_sphere
+    }
+}
+
 pub fn random_vector_in_unit_disk(rng: &mut SmallRng) -> Vec2 {
     loop {
         let p = Vec2::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0));

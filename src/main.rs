@@ -34,12 +34,17 @@ fn main() {
     let mut scene_builders = Vec::<SceneBuilder>::new();
     let mut procedural_scene_builders = Vec::<ProceduralSceneBuilder>::new();
 
+    scene_builders.push(scenes::fixed::quad_light);
+
     // scene_builders.push(scenes::fixed::single_centered_light);
     // scene_builders.push(scenes::fixed::some_random_lights);
     // scene_builders.push(scenes::fixed::basic_quad);
+
     // scene_builders.push(scenes::fixed::light_box);
     // scene_builders.push(scenes::fixed::centered_ball);
-    scene_builders.push(scenes::fixed::quad_light);
+    scene_builders.push(scenes::fixed::centered_ball_with_normals);
+
+    // scene_builders.push(scenes::fixed::light_ball);
     scene_builders.push(scenes::fixed::test_balls);
     scene_builders.push(scenes::fixed::checkered_floor);
     // scene_builders.push(scenes::fixed::textured_floor);
@@ -58,14 +63,14 @@ fn main() {
     // procedural_scene_builders.push(scenes::animated::interweaved_xbox_spinny);
 
     //////////////////////// CAMERA ZONE ////////////////////////
-    // procedural_scene_builders.push(scenes::animated::orbit_camera);
-    procedural_scene_builders.push(scenes::animated::pidgeon_camera);
+    procedural_scene_builders.push(scenes::animated::orbit_camera);
+    // procedural_scene_builders.push(scenes::animated::pidgeon_camera);
 
-    let resolution = resolutions[4];
+    let resolution = resolutions[5];
     println!("Resolution: {:?}", resolution);
     let time = std::time::Instant::now();
 
-    let samps = 8;
+    let samps = 20;
     let rng_seed = [0u8; 32];
 
     // generate_image(

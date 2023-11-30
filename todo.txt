@@ -1,0 +1,5 @@
+- replace small random with normal random for better distribution
+ 
+- try some procedurally generated textures
+
+- refactor roughness to be a scale off of smoothness

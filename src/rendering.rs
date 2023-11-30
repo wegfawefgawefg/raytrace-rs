@@ -1,4 +1,5 @@
 use either::Either;
+use glam::Mat3;
 use glam::Vec2;
 use indicatif::ProgressIterator;
 use rand::rngs::SmallRng;
@@ -11,12 +12,17 @@ use indicatif::ProgressBar;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rayon::prelude::*;
 
+use crate::utils::random_vector_in_hemisphere;
+use crate::utils::random_vector_in_unit_sphere;
 use crate::{
     scene::{Cam, Scene},
     shapes::Shape,
     structures::{HitRecord, Ray},
     utils::random_vector_in_unit_disk,
 };
+
+pub const FAUX_LIGHTING_DIFFUSION: bool = true;
+pub const FAUX_LIGHTING_SPECULAR: bool = true;
 
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene(
@@ -92,14 +98,14 @@ pub fn render_scene_inner(
     let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
     let mut rng = SmallRng::from_seed(rng_seed); //rng.gen::<f32>()
 
-    let row_iter = (0..resolution.y as usize).into_iter();
+    let row_iter = 0..resolution.y as usize;
     let row_iter_with_maybe_progress_bar = if use_progress_bar {
         Either::Left(row_iter.progress())
     } else {
         Either::Right(row_iter)
     };
 
-    row_iter_with_maybe_progress_bar.map(|y| {
+    let _ = row_iter_with_maybe_progress_bar.map(|y| {
         for x in 0..(resolution.x as usize) {
             let target = viewport_top_left
                 + (target_right_step * (x as f32))
@@ -107,7 +113,7 @@ pub fn render_scene_inner(
 
             let color = if num_samples_per_pixel == 1 {
                 let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
-                raytrace(&ray, scene, max_bounces, 0)
+                raytrace(&ray, scene, max_bounces, 0, &mut rng)
             } else {
                 let mut color = Vec3::ZERO;
 
@@ -117,7 +123,7 @@ pub fn render_scene_inner(
                         random_offset.x * target_right_step + random_offset.y * target_down_step;
                     let starting_position = scene.cam.pos + scaled_offset;
                     let ray = Ray::new(starting_position, target - scene.cam.pos);
-                    color += raytrace(&ray, scene, max_bounces, 0);
+                    color += raytrace(&ray, scene, max_bounces, 0, &mut rng);
                 }
                 color /= num_samples_per_pixel as f32;
                 color
@@ -163,7 +169,7 @@ pub fn render_scene_inner_multithreaded(
 
                 let color = if num_samples_per_pixel == 1 {
                     let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
-                    raytrace(&ray, scene, max_bounces, 0)
+                    raytrace(&ray, scene, max_bounces, 0, &mut rng)
                 } else {
                     let mut color = Vec3::ZERO;
 
@@ -173,7 +179,7 @@ pub fn render_scene_inner_multithreaded(
                             + random_offset.y * target_down_step;
                         let starting_position = scene.cam.pos + scaled_offset;
                         let ray = Ray::new(starting_position, target - scene.cam.pos);
-                        color += raytrace(&ray, scene, max_bounces, 0);
+                        color += raytrace(&ray, scene, max_bounces, 0, &mut rng);
                     }
                     color /= num_samples_per_pixel as f32;
                     color
@@ -187,7 +193,13 @@ pub fn render_scene_inner_multithreaded(
     pixels
 }
 
-pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 {
+pub fn raytrace(
+    ray: &Ray,
+    scene: &Scene,
+    max_bounces: u32,
+    depth: u32,
+    rng: &mut SmallRng,
+) -> Vec3 {
     if depth == max_bounces {
         return Vec3::ZERO;
     }
@@ -211,27 +223,51 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
         Some(shape) => {
             let hit_record = closest_hit_record.unwrap();
             let material = shape.material();
-            let hit_normal = hit_record.normal;
+            let mut hit_normal = hit_record.normal;
             let hit_pos = ray.at(hit_record.t);
             let uv = shape.get_hit_uv(hit_pos);
 
+            //////// NORMAL MAPPING ////////
+            if material.normal_map_magnitude_multiplier() > 0.0 {
+                let mut sampled_normal = material.normal_at(&uv);
+                sampled_normal = sampled_normal.normalize();
+
+                // Calculate the TBN matrix
+                let tangent = hit_normal.cross(Vec3::Y).normalize();
+                let bitangent = tangent.cross(hit_normal).normalize();
+
+                // Transform the normal from tangent space to world space
+                let normal_matrix = Mat3::from_cols(tangent, bitangent, hit_normal);
+                hit_normal = normal_matrix * sampled_normal;
+                hit_normal = hit_normal.normalize();
+            }
+
             let mut color = Vec3::ZERO;
+
+            let outside = ray.dir.dot(hit_normal) < 0.0; // Check if ray is outside the object
+            let corrected_normal = if outside { hit_normal } else { -hit_normal };
 
             //////// REFLECTION ////////
             let reflectiveness = material.reflection_at(&uv);
             if reflectiveness > 0.0 {
-                let outside = ray.dir.dot(hit_normal) < 0.0; // Check if ray is outside the object
-                let corrected_normal = if outside { hit_normal } else { -hit_normal };
-                let bounce_dir = ray.dir - 2.0 * ray.dir.dot(corrected_normal) * corrected_normal;
+                // latest update is bounce_dir is randomly biased towards the hemisphere of the normal
+                let mut bounce_dir =
+                    ray.dir - 2.0 * ray.dir.dot(corrected_normal) * corrected_normal;
+
+                let roughness = material.roughness_at(&uv);
+                if roughness > 0.0 {
+                    // let scattered_bounce_dir = random_vector_in_unit_sphere(rng) * roughness;
+                    let scattered_bounce_dir = random_vector_in_hemisphere(corrected_normal, rng);
+                    bounce_dir = bounce_dir.lerp(scattered_bounce_dir, roughness);
+                }
+
                 let bounce_ray = Ray::new(hit_pos + bounce_dir * 0.001, bounce_dir);
-                color += raytrace(&bounce_ray, scene, max_bounces, depth + 1) * reflectiveness;
+                color += raytrace(&bounce_ray, scene, max_bounces, depth + 1, rng) * reflectiveness;
             }
 
             //////// REFRACTION ////////
             let refractiveness = material.refraction_at(&uv);
             if refractiveness > 0.0 {
-                let outside = ray.dir.dot(hit_normal) < 0.0; // Check if ray is outside the object
-                let corrected_normal = if outside { hit_normal } else { -hit_normal };
                 let refracted_dir = refract(
                     ray.dir,
                     corrected_normal,
@@ -241,7 +277,8 @@ pub fn raytrace(ray: &Ray, scene: &Scene, max_bounces: u32, depth: u32) -> Vec3 
 
                 if let Some(refracted_dir) = refracted_dir {
                     let refracted_ray = Ray::new(hit_pos + refracted_dir * 0.001, refracted_dir);
-                    let refracted_color = raytrace(&refracted_ray, scene, max_bounces, depth + 1);
+                    let refracted_color =
+                        raytrace(&refracted_ray, scene, max_bounces, depth + 1, rng);
                     color += refracted_color * refractiveness;
                 }
             }
@@ -288,15 +325,19 @@ pub fn color_at(
         let to_cam = (scene.cam.pos - *hit_pos).normalize();
 
         // Diffuse lighting
-        color += material.color_at(uv)
-            * material.diffuse_at(uv)
-            * f32::max(hit_normal.dot(to_light), 0.0);
+        if FAUX_LIGHTING_DIFFUSION {
+            color += material.color_at(uv)
+                * material.diffuse_at(uv)
+                * f32::max(hit_normal.dot(to_light), 0.0);
+        }
 
-        // Specular lighting
-        let halfway = (to_light + to_cam).normalize();
-        color += light.color
-            * material.specular_at(uv)
-            * f32::max(hit_normal.dot(halfway), 0.0).powi(30);
+        if FAUX_LIGHTING_SPECULAR {
+            // Specular lighting
+            let halfway = (to_light + to_cam).normalize();
+            color += light.color
+                * material.specular_at(uv)
+                * f32::max(hit_normal.dot(halfway), 0.0).powi(30);
+        }
     }
 
     color
