@@ -1,3 +1,4 @@
+use bvh::{aabb::AABB, Point3, Vector3};
 use glam::{Vec2, Vec3};
 
 use crate::{
@@ -11,6 +12,7 @@ pub trait Shape: Sync {
     fn get_normal(&self, hit_pos: Vec3) -> Vec3;
     fn get_hit_uv(&self, hit_pos: Vec3) -> Vec2;
     fn material(&self) -> &Box<dyn Material>;
+    fn aabb(&self) -> AABB;
 }
 
 pub struct Sphere {
@@ -37,6 +39,15 @@ impl Sphere {
 }
 
 impl Shape for Sphere {
+    fn aabb(&self) -> AABB {
+        let half_size = Vec3::new(self.radius, self.radius, self.radius);
+        let min = self.center - half_size;
+        let max = self.center + half_size;
+        let min = Vector3::new(min.x, min.y, min.z);
+        let max = Vector3::new(max.x, max.y, max.z);
+        AABB::with_bounds(min, max)
+    }
+
     fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord> {
         let to_sphere = ray.origin - self.center;
         let a = ray.dir.length_squared();
@@ -110,6 +121,7 @@ impl Quad {
         normal: Vec3,
         edge1: Vec3,
         edge2: Vec3,
+
         material: Box<dyn Material>,
     ) -> Quad {
         Quad {
@@ -120,8 +132,60 @@ impl Quad {
             material,
         }
     }
+
+    pub fn new_from_points(
+        p1: Vec3,
+        p2: Vec3,
+        p3: Vec3,
+        p4: Vec3,
+        material: Box<dyn Material>,
+    ) -> Quad {
+        let edge1 = p2 - p1;
+        let edge2 = p3 - p1;
+        let normal = edge1.cross(edge2).normalize();
+
+        Quad {
+            point: p1,
+            normal,
+            edge1,
+            edge2,
+            material,
+        }
+    }
 }
+
 impl Shape for Quad {
+    fn aabb(&self) -> AABB {
+        let mut min_x = self.point.x;
+        let mut max_x = self.point.x;
+        let mut min_y = self.point.y;
+        let mut max_y = self.point.y;
+        let mut min_z = self.point.z;
+        let mut max_z = self.point.z;
+
+        // Check each vertex of the quad to find the min and max for each axis
+        let vertices = [
+            self.point,
+            self.point + self.edge1,
+            self.point + self.edge2,
+            self.point + self.edge1 + self.edge2,
+        ];
+
+        for vertex in &vertices {
+            min_x = min_x.min(vertex.x);
+            max_x = max_x.max(vertex.x);
+            min_y = min_y.min(vertex.y);
+            max_y = max_y.max(vertex.y);
+            min_z = min_z.min(vertex.z);
+            max_z = max_z.max(vertex.z);
+        }
+
+        let min = Point3::new(min_x, min_y, min_z);
+        let max = Point3::new(max_x, max_y, max_z);
+
+        AABB::with_bounds(min, max)
+    }
+
     fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord> {
         let denominator = self.normal.dot(ray.dir);
         if denominator.abs() < 1e-6 {
@@ -199,6 +263,23 @@ impl Plane {
 }
 
 impl Shape for Plane {
+    fn aabb(&self) -> AABB {
+        // Define the extent of the AABB in each axis.
+        // These values should be large enough to encompass the area where the plane has an effect.
+        let extent = 1e5f32;
+
+        // Calculate the min and max points of the AABB.
+        let min = self.point - Vec3::new(extent, extent, extent);
+        let max = self.point + Vec3::new(extent, extent, extent);
+
+        //convert
+        let min = Vector3::new(min.x, min.y, min.z);
+        let max = Vector3::new(max.x, max.y, max.z);
+
+        // Return the AABB
+        AABB::with_bounds(min, max)
+    }
+
     fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord> {
         let denom = self.normal.dot(ray.dir);
         if denom.abs() > 1e-6 {
@@ -241,5 +322,116 @@ impl Shape for Plane {
         let v_modulated = v % 1.0;
 
         Vec2::new(u_modulated, v_modulated)
+    }
+}
+
+pub struct Tri {
+    pub a: Vec3,
+    pub b: Vec3,
+    pub c: Vec3,
+    pub material: Box<dyn Material>,
+}
+
+impl Tri {
+    pub fn new(a: Vec3, b: Vec3, c: Vec3, material: Box<dyn Material>) -> Tri {
+        Tri { a, b, c, material }
+    }
+}
+
+impl Shape for Tri {
+    fn aabb(&self) -> AABB {
+        let mut min_x = self.a.x;
+        let mut max_x = self.a.x;
+        let mut min_y = self.a.y;
+        let mut max_y = self.a.y;
+        let mut min_z = self.a.z;
+        let mut max_z = self.a.z;
+
+        // Check each vertex of the quad to find the min and max for each axis
+        let vertices = [self.a, self.b, self.c];
+
+        for vertex in &vertices {
+            min_x = min_x.min(vertex.x);
+            max_x = max_x.max(vertex.x);
+            min_y = min_y.min(vertex.y);
+            max_y = max_y.max(vertex.y);
+            min_z = min_z.min(vertex.z);
+            max_z = max_z.max(vertex.z);
+        }
+
+        let min = Point3::new(min_x, min_y, min_z);
+        let max = Point3::new(max_x, max_y, max_z);
+
+        AABB::with_bounds(min, max)
+    }
+
+    fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord> {
+        let edge1 = self.b - self.a;
+        let edge2 = self.c - self.a;
+        let h = ray.dir.cross(edge2);
+        let a = edge1.dot(h);
+
+        if a.abs() < 1e-6 {
+            return None; // Ray is parallel to the triangle
+        }
+
+        let f = 1.0 / a;
+        let s = ray.origin - self.a;
+        let u = f * s.dot(h);
+
+        if !(0.0..=1.0).contains(&u) {
+            return None; // Intersection is outside the triangle
+        }
+
+        let q = s.cross(edge1);
+        let v = f * ray.dir.dot(q);
+
+        if v < 0.0 || u + v > 1.0 {
+            return None; // Intersection is outside the triangle
+        }
+
+        let t = f * edge2.dot(q);
+
+        if t < ray_tmin || t > ray_tmax {
+            return None; // Intersection is outside the valid range
+        }
+
+        let p = ray.at(t);
+        let normal = edge1.cross(edge2).normalize();
+
+        let mut hit_record = HitRecord::new();
+        hit_record.t = t;
+        hit_record.p = p;
+        hit_record.set_face_normal(ray, normal);
+
+        Some(hit_record)
+    }
+    fn get_normal(&self, _hit_pos: Vec3) -> Vec3 {
+        let edge1 = self.b - self.a;
+        let edge2 = self.c - self.a;
+        edge1.cross(edge2).normalize()
+    }
+    fn material(&self) -> &Box<dyn Material> {
+        &self.material
+    }
+
+    // UNTESTED
+    fn get_hit_uv(&self, hit_pos: Vec3) -> Vec2 {
+        let edge1 = self.b - self.a;
+        let edge2 = self.c - self.a;
+        let hit_vec = hit_pos - self.a;
+
+        // Calculate barycentric coordinates
+        let dot00 = edge1.dot(edge1);
+        let dot01 = edge1.dot(edge2);
+        let dot11 = edge2.dot(edge2);
+        let dot0h = edge1.dot(hit_vec);
+        let dot1h = edge2.dot(hit_vec);
+
+        let inv_denom = 1.0 / (dot00 * dot11 - dot01 * dot01);
+        let u = (dot11 * dot0h - dot01 * dot1h) * inv_denom;
+        let v = (dot00 * dot1h - dot01 * dot0h) * inv_denom;
+
+        Vec2::new(u, v)
     }
 }

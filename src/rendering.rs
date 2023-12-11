@@ -3,30 +3,23 @@ use glam::Mat3;
 use glam::Vec2;
 use indicatif::ProgressIterator;
 use rand::rngs::SmallRng;
-use rand::Rng;
 use rand::SeedableRng;
 
 use glam::{IVec2, Vec3};
 use indicatif::ParallelProgressIterator;
-use indicatif::ProgressBar;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::ParallelIterator;
 use rayon::prelude::*;
 
+use crate::scene::OptimizedScene;
 use crate::utils::random_vector_in_hemisphere;
-use crate::utils::random_vector_in_unit_sphere;
-use crate::{
-    scene::{Cam, Scene},
-    shapes::Shape,
-    structures::{HitRecord, Ray},
-    utils::random_vector_in_unit_disk,
-};
+use crate::{shapes::Shape, structures::Ray, utils::random_vector_in_unit_disk};
 
 pub const FAUX_LIGHTING_DIFFUSION: bool = true;
 pub const FAUX_LIGHTING_SPECULAR: bool = true;
 
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene(
-    scene: &Scene,
+    scene: &OptimizedScene,
     resolution: IVec2,
     num_samples_per_pixel: u32,
     max_bounces: u32,
@@ -35,8 +28,6 @@ pub fn render_scene(
 
     use_progress_bar: bool,
 ) -> Vec<Vec<Vec3>> {
-    let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
-
     let cam = &scene.cam;
 
     let right = scene.cam.right;
@@ -80,10 +71,13 @@ pub fn render_scene(
     }
 }
 
+//TODO: merge render_scene_inner and render_scene_inner_multithreaded
+// they only have one single difference, which is the row_iter not being parallel
+
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene_inner(
-    scene: &Scene,
+    scene: &OptimizedScene,
     resolution: IVec2,
     num_samples_per_pixel: u32,
     max_bounces: u32,
@@ -95,50 +89,53 @@ pub fn render_scene_inner(
 
     use_progress_bar: bool,
 ) -> Vec<Vec<Vec3>> {
-    let mut pixels = vec![vec![Vec3::ZERO; resolution.x as usize]; resolution.y as usize];
-    let mut rng = SmallRng::from_seed(rng_seed); //rng.gen::<f32>()
-
     let row_iter = 0..resolution.y as usize;
     let row_iter_with_maybe_progress_bar = if use_progress_bar {
-        Either::Left(row_iter.progress())
+        Either::Left(row_iter.progress_count(resolution.y as u64))
     } else {
         Either::Right(row_iter)
     };
 
-    let _ = row_iter_with_maybe_progress_bar.map(|y| {
-        for x in 0..(resolution.x as usize) {
-            let target = viewport_top_left
-                + (target_right_step * (x as f32))
-                + (target_down_step * (y as f32));
+    let pixels: Vec<Vec<Vec3>> = row_iter_with_maybe_progress_bar
+        .map(|y| {
+            let mut rng = SmallRng::from_seed(rng_seed); //rng.gen::<f32>()
+            let mut row = Vec::with_capacity(resolution.x as usize);
+            for x in 0..resolution.x as usize {
+                let target = viewport_top_left
+                    + (target_right_step * (x as f32))
+                    + (target_down_step * (y as f32));
+                // .progress_count(resolution.y as u64)
 
-            let color = if num_samples_per_pixel == 1 {
-                let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
-                raytrace(&ray, scene, max_bounces, 0, &mut rng)
-            } else {
-                let mut color = Vec3::ZERO;
+                let color = if num_samples_per_pixel == 1 {
+                    let ray = Ray::new(scene.cam.pos, target - scene.cam.pos);
+                    raytrace(&ray, scene, max_bounces, 0, &mut rng)
+                } else {
+                    let mut color = Vec3::ZERO;
 
-                for _ in 0..num_samples_per_pixel {
-                    let random_offset = random_vector_in_unit_disk(&mut rng);
-                    let scaled_offset =
-                        random_offset.x * target_right_step + random_offset.y * target_down_step;
-                    let starting_position = scene.cam.pos + scaled_offset;
-                    let ray = Ray::new(starting_position, target - scene.cam.pos);
-                    color += raytrace(&ray, scene, max_bounces, 0, &mut rng);
-                }
-                color /= num_samples_per_pixel as f32;
-                color
-            };
-            pixels[y][x] = color;
-        }
-    });
+                    for _ in 0..num_samples_per_pixel {
+                        let random_offset = random_vector_in_unit_disk(&mut rng);
+                        let scaled_offset = random_offset.x * target_right_step
+                            + random_offset.y * target_down_step;
+                        let starting_position = scene.cam.pos + scaled_offset;
+                        let ray = Ray::new(starting_position, target - scene.cam.pos);
+                        color += raytrace(&ray, scene, max_bounces, 0, &mut rng);
+                    }
+                    color /= num_samples_per_pixel as f32;
+                    color
+                };
+                row.push(color);
+            }
 
+            row
+        })
+        .collect(); // Collect rows into a vector of rows
     pixels
 }
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::needless_range_loop)]
 pub fn render_scene_inner_multithreaded(
-    scene: &Scene,
+    scene: &OptimizedScene,
     resolution: IVec2,
     num_samples_per_pixel: u32,
     max_bounces: u32,
@@ -195,7 +192,7 @@ pub fn render_scene_inner_multithreaded(
 
 pub fn raytrace(
     ray: &Ray,
-    scene: &Scene,
+    scene: &OptimizedScene,
     max_bounces: u32,
     depth: u32,
     rng: &mut SmallRng,
@@ -208,7 +205,21 @@ pub fn raytrace(
     let mut closest_hit_record = None;
     let mut closest_so_far = std::f32::INFINITY;
 
-    for shape in &scene.shapes {
+    // old code before bvh was implemented
+    // for shape in scene.get_shapes_slice() {
+    //     if let Some(hit_record) = shape.hit(ray, 0.001, std::f32::INFINITY) {
+    //         if hit_record.t < closest_so_far {
+    //             shape_hit = Some(shape);
+    //             closest_so_far = hit_record.t;
+    //             closest_hit_record = Some(hit_record);
+    //         }
+    //     }
+    // }
+
+    // new code using bvh
+    let wrapped_shapes = scene.raycast(ray);
+    for wrapped_shape in wrapped_shapes {
+        let shape = wrapped_shape.get_shape();
         if let Some(hit_record) = shape.hit(ray, 0.001, std::f32::INFINITY) {
             if hit_record.t < closest_so_far {
                 shape_hit = Some(shape);
@@ -308,7 +319,7 @@ fn refract(incident: Vec3, normal: Vec3, refraction_index: f32, outside: bool) -
 }
 
 pub fn color_at(
-    scene: &Scene,
+    scene: &OptimizedScene,
     ray: &Ray,
     shape_hit: &Box<dyn Shape>,
     hit_pos: &Vec3,

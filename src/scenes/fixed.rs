@@ -11,6 +11,7 @@ use crate::material::TexturedMaterialWithNormal;
 use crate::material::{BasicMaterial, CheckerMaterial};
 use crate::scene::Scene;
 use crate::shapes::Quad;
+use crate::shapes::Tri;
 use crate::shapes::{Plane, Sphere};
 use crate::structures::Light;
 
@@ -19,25 +20,25 @@ pub fn single_centered_light(scene: &mut Scene) {
         Vec3::new(0.5, 0.5, 0.5) * scene.scale * 5.0,
         Vec3::new(255.0, 255.0, 255.0),
     );
-    scene.lights.push(light);
+    scene.add_light(light);
 }
 
 pub fn quad_light(scene: &mut Scene) {
     let vertical_offset = 10.0 * scene.scale;
     let lateral_offset = 2.0 * scene.scale;
-    scene.lights.push(Light::new(
+    scene.add_light(Light::new(
         Vec3::new(lateral_offset, vertical_offset, lateral_offset),
         Vec3::new(255.0, 255.0, 255.0),
     ));
-    scene.lights.push(Light::new(
+    scene.add_light(Light::new(
         Vec3::new(-lateral_offset, vertical_offset, -lateral_offset),
         Vec3::new(255.0, 255.0, 255.0),
     ));
-    scene.lights.push(Light::new(
+    scene.add_light(Light::new(
         Vec3::new(lateral_offset, vertical_offset, -lateral_offset),
         Vec3::new(255.0, 255.0, 255.0),
     ));
-    scene.lights.push(Light::new(
+    scene.add_light(Light::new(
         Vec3::new(-lateral_offset, vertical_offset, lateral_offset),
         Vec3::new(255.0, 255.0, 255.0),
     ));
@@ -56,7 +57,38 @@ pub fn some_random_lights(scene: &mut Scene) {
             ),
             Vec3::new(rng.gen(), rng.gen(), rng.gen()),
         );
-        scene.lights.push(light);
+        scene.add_light(light);
+    }
+}
+
+pub fn grid_of_balls(scene: &mut Scene) {
+    let seed = [0u8; 32]; // All zeros
+    let mut rng = SmallRng::from_seed(seed);
+
+    // spheres
+    let num = 10;
+    for z in 0..num {
+        for y in 0..num {
+            for x in 0..num {
+                let material = BasicMaterial::builder()
+                    .color(Vec3::new(rng.gen(), rng.gen(), rng.gen()) * 255.0)
+                    .ambient(1.0)
+                    .diffuse(0.01)
+                    .specular(0.1)
+                    .reflection(1.0)
+                    .build();
+                let z = (z as f32 / num as f32 - 0.5) * scene.scale * 1.0;
+                let y = (y as f32 / num as f32 - 0.5) * scene.scale * 1.0 - scene.scale * 0.8;
+                let x = (x as f32 / num as f32 - 0.5) * scene.scale * 1.0;
+                let sphere = Sphere::new(
+                    Vec3::new(x, y, z),
+                    scene.scale * 0.005,
+                    Box::new(material),
+                    glam::Quat::IDENTITY,
+                );
+                scene.add_shape(Box::new(sphere));
+            }
+        }
     }
 }
 
@@ -84,7 +116,7 @@ pub fn some_random_balls(scene: &mut Scene) {
             Box::new(material),
             glam::Quat::IDENTITY,
         );
-        scene.shapes.push(Box::new(sphere));
+        scene.add_shape(Box::new(sphere));
     }
 }
 
@@ -101,7 +133,7 @@ pub fn sky_sphere(scene: &mut Scene) {
     );
 
     // center
-    scene.shapes.push(Box::new(Sphere::new(
+    scene.add_shape(Box::new(Sphere::new(
         Vec3::new(0.0, scene.scale * 20.0, 0.0),
         // Vec3::ZERO,
         scene.scale * 100.0,
@@ -114,7 +146,7 @@ pub fn sky_sphere(scene: &mut Scene) {
 
 pub fn test_balls(scene: &mut Scene) {
     // center
-    scene.shapes.push(Box::new(Sphere::new(
+    scene.add_shape(Box::new(Sphere::new(
         Vec3::new(0.0, 0.0, 0.0),
         // Vec3::new(0.0, -scene.scale / 20.0, 0.0),
         scene.scale / 4.0,
@@ -123,17 +155,18 @@ pub fn test_balls(scene: &mut Scene) {
                 .color(Vec3::new(255.0, 255.0, 255.0))
                 .ambient(0.0)
                 .diffuse(0.02)
-                .specular(0.01)
+                .specular(0.1)
                 .reflection(0.1)
-                .roughness(1.0)
-                .refraction(2.0)
+                .roughness(0.03)
+                // .refractive_index(2.3)
+                // .refraction(0.7)
                 .build(),
         ),
         Quat::IDENTITY,
     )));
 
     // behind left
-    scene.shapes.push(Box::new(Sphere::new(
+    scene.add_shape(Box::new(Sphere::new(
         Vec3::new(-scene.scale / 5.0, 0.0, scene.scale / 2.0),
         scene.scale / 8.0,
         Box::new(
@@ -151,7 +184,7 @@ pub fn test_balls(scene: &mut Scene) {
     )));
 
     // behind right
-    scene.shapes.push(Box::new(Sphere::new(
+    scene.add_shape(Box::new(Sphere::new(
         Vec3::new(scene.scale / 5.0, 0.0, scene.scale / 2.0),
         scene.scale / 8.0,
         Box::new(
@@ -169,7 +202,7 @@ pub fn test_balls(scene: &mut Scene) {
     )));
 
     // up and too the right
-    scene.shapes.push(Box::new(Sphere::new(
+    scene.add_shape(Box::new(Sphere::new(
         Vec3::new(scene.scale / 2.0, scene.scale / 3.0, scene.scale / 4.0),
         scene.scale / 6.0,
         Box::new(
@@ -187,7 +220,7 @@ pub fn test_balls(scene: &mut Scene) {
     )));
 
     // up and too the left
-    scene.shapes.push(Box::new(Sphere::new(
+    scene.add_shape(Box::new(Sphere::new(
         Vec3::new(-scene.scale / 2.0, scene.scale / 3.0, scene.scale / 4.0),
         scene.scale / 6.0,
         Box::new(TexturedMaterial::new(
@@ -227,7 +260,32 @@ pub fn infinite_checkered_floor(scene: &mut Scene) {
         Vec3::new(0.0, 1.0, 0.0),
         Box::new(material),
     );
-    scene.shapes.push(Box::new(plane));
+    scene.add_shape(Box::new(plane));
+}
+
+pub fn test_tris(scene: &mut Scene) {
+    // center
+    let a = Vec3::new(0.0, 0.0, 0.0);
+    let b = Vec3::new(0.0, 0.0, scene.scale);
+    let c = Vec3::new(scene.scale, 0.0, scene.scale);
+
+    scene.add_shape(Box::new(Tri::new(
+        a,
+        b,
+        c,
+        Box::new(
+            BasicMaterial::builder()
+                .color(Vec3::new(255.0, 255.0, 255.0))
+                .ambient(0.0)
+                .diffuse(0.02)
+                .specular(0.1)
+                .reflection(0.1)
+                .roughness(0.03)
+                // .refractive_index(2.3)
+                // .refraction(0.7)
+                .build(),
+        ),
+    )))
 }
 
 pub fn checkered_floor(scene: &mut Scene) {
@@ -255,7 +313,7 @@ pub fn checkered_floor(scene: &mut Scene) {
         Vec3::new(0.0, 0.0, size),
         Box::new(material),
     );
-    scene.shapes.push(Box::new(plane));
+    scene.add_shape(Box::new(plane));
 }
 
 pub fn textured_floor(scene: &mut Scene) {
@@ -284,7 +342,7 @@ pub fn textured_floor(scene: &mut Scene) {
         Vec3::new(0.0, 0.0, size),
         Box::new(material),
     );
-    scene.shapes.push(Box::new(plane));
+    scene.add_shape(Box::new(plane));
 }
 
 pub fn matte_floor(scene: &mut Scene) {
@@ -301,7 +359,7 @@ pub fn matte_floor(scene: &mut Scene) {
         Vec3::new(0.0, 1.0, 0.0),
         Box::new(material),
     );
-    scene.shapes.push(Box::new(plane));
+    scene.add_shape(Box::new(plane));
 }
 
 pub fn scene_4(scene: &mut Scene) {
@@ -309,7 +367,7 @@ pub fn scene_4(scene: &mut Scene) {
 
     // one light at 000
     let light = Light::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(255.0, 255.0, 255.0));
-    scene.lights.push(light);
+    scene.add_light(light);
 
     // lights
     let offset = scene.scale / 2.0;
@@ -321,7 +379,7 @@ pub fn scene_4(scene: &mut Scene) {
 
         // make a ring of lights
         let light = Light::new(p, Vec3::new(1.0, 1.0, 1.0));
-        scene.lights.push(light);
+        scene.add_light(light);
 
         // make a ring of spheres
         let basic_material = BasicMaterial::builder()
@@ -343,7 +401,7 @@ pub fn scene_4(scene: &mut Scene) {
             Box::new(material),
             glam::Quat::IDENTITY,
         );
-        scene.shapes.push(Box::new(sphere));
+        scene.add_shape(Box::new(sphere));
     }
 
     // single centered sphere
@@ -366,7 +424,7 @@ pub fn scene_4(scene: &mut Scene) {
         Box::new(material),
         glam::Quat::IDENTITY,
     );
-    scene.shapes.push(Box::new(sphere));
+    scene.add_shape(Box::new(sphere));
 }
 
 pub fn light_ball(scene: &mut Scene) {
@@ -380,7 +438,7 @@ pub fn light_ball(scene: &mut Scene) {
         Box::new(material),
         glam::Quat::IDENTITY,
     );
-    scene.shapes.push(Box::new(sphere));
+    scene.add_shape(Box::new(sphere));
 }
 
 pub fn centered_ball_with_normals(scene: &mut Scene) {
@@ -411,7 +469,7 @@ pub fn centered_ball_with_normals(scene: &mut Scene) {
         Box::new(material),
         glam::Quat::IDENTITY,
     );
-    scene.shapes.push(Box::new(sphere));
+    scene.add_shape(Box::new(sphere));
 }
 
 pub fn centered_ball(scene: &mut Scene) {
@@ -430,19 +488,20 @@ pub fn centered_ball(scene: &mut Scene) {
         Box::new(material),
         glam::Quat::IDENTITY,
     );
-    scene.shapes.push(Box::new(sphere));
+    scene.add_shape(Box::new(sphere));
 }
 
 pub fn set_cam(scene: &mut Scene) {
     let center = Vec3::ZERO;
 
-    // scene.cam.pos.x = 0.0;
-    // scene.cam.pos.z = center.z;
-    // scene.cam.look_at(center);
+    scene.cam.pos.x = 0.0;
+    scene.cam.pos.y = scene.scale * 1.0;
+    scene.cam.pos.z = center.z - scene.scale * 0.7;
+    scene.cam.look_at(center);
 }
 
 pub fn basic_quad(scene: &mut Scene) {
-    scene.shapes.push(Box::new(Quad::new(
+    scene.add_shape(Box::new(Quad::new(
         Vec3::new(0.0, -0.5, 0.0),
         Vec3::new(0.0, 0.1, 0.0),
         Vec3::new(1.0, 0.0, 0.0),
@@ -476,7 +535,7 @@ pub fn light_box(scene: &mut Scene) {
     let height = scale * 1.0;
 
     // back wall
-    scene.shapes.push(Box::new(Quad::new(
+    scene.add_shape(Box::new(Quad::new(
         Vec3::new(-width / 2.0, -width / 2.0, width / 2.0),
         Vec3::new(0.0, 0.0, -1.0),
         Vec3::new(width, 0.0, 0.0),
@@ -485,7 +544,7 @@ pub fn light_box(scene: &mut Scene) {
     )));
 
     // Left Wall
-    scene.shapes.push(Box::new(Quad::new(
+    scene.add_shape(Box::new(Quad::new(
         Vec3::new(-width / 2.0, -height * 0.5 + 0.001, width / 2.0),
         Vec3::new(1.0, 0.0, 0.0),
         Vec3::new(0.0, 0.0, -width),
@@ -494,7 +553,7 @@ pub fn light_box(scene: &mut Scene) {
     )));
 
     // Right Wall
-    scene.shapes.push(Box::new(Quad::new(
+    scene.add_shape(Box::new(Quad::new(
         Vec3::new(width / 2.0, -scale * 0.5 - 0.001, width / 2.0),
         Vec3::new(-1.0, 0.0, 0.0),
         Vec3::new(0.0, 0.0, -width),
@@ -503,7 +562,7 @@ pub fn light_box(scene: &mut Scene) {
     )));
 
     // Top Wall (Ceiling)
-    scene.shapes.push(Box::new(Quad::new(
+    scene.add_shape(Box::new(Quad::new(
         Vec3::new(-width / 2.0, height * 0.5 - 0.001, width / 2.0),
         Vec3::new(0.0, -1.0, 0.0),
         Vec3::new(width, 0.0, 0.0),
@@ -512,7 +571,7 @@ pub fn light_box(scene: &mut Scene) {
     )));
 
     // Bottom Wall (Floor)
-    scene.shapes.push(Box::new(Quad::new(
+    scene.add_shape(Box::new(Quad::new(
         Vec3::new(-width / 2.0, -height * 0.5 + 0.001, width / 2.0),
         Vec3::new(0.0, 1.0, 0.0),
         Vec3::new(width, 0.0, 0.0),

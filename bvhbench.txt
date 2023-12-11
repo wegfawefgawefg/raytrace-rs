@@ -1,0 +1,39 @@
+bvh still: 
+
+Resolution: IVec2(3840, 2160)
+Time elapsed: 1.302256163s
+
+no bvh still:
+
+Resolution: IVec2(3840, 2160)
+Time elapsed: 1.001356398s
+---------------------------------------------------- 
+no bvh vid test balls scene
+Resolution: IVec2(3840, 2160)
+Time elapsed: 1.001356398s
+
+vs
+
+with bch:
+Resolution: IVec2(3840, 2160) @ 1 samples per pixel
+Time elapsed: 1.449268066s
+
+conclusion: its slower for simple scenes. so no more simple scenes.
+
+---------------------------------------------------- 
+no bvh grid of balls scene:
+
+Resolution: IVec2(3840, 2160) @ 1 samples per pixel
+Time elapsed: 42.664650529s
+
+Resolution: IVec2(3840, 2160) @ 8 samples per pixel
+Time elapsed: 343.279839828s
+
+vs
+with bvh. okay its way faster.
+
+Resolution: IVec2(3840, 2160) @ 1 samples per pixel
+Time elapsed: 6.25025597s
+
+Resolution: IVec2(3840, 2160) @ 8 samples per pixel
+Time elapsed: 44.376148927s

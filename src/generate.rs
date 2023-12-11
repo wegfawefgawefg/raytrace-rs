@@ -1,40 +1,31 @@
 use indicatif::ProgressBar;
 
 use crate::image_writing::write_as_png;
-use crate::rendering::render_scene;
-use crate::scene::Scene;
+use crate::scene::{Scene, SceneBuilder};
 use glam::IVec2;
 
-pub type SceneBuilder = fn(&mut Scene);
-pub type ProceduralSceneBuilder = fn(&mut Scene, u32, u32);
+pub type SceneModifier = fn(&mut Scene);
+pub type ProceduralSceneModifier = fn(&mut Scene, u32, u32);
 
 pub fn generate_image(
     resolution: IVec2,
     num_samples_per_pixel: u32,
     rng_seed: [u8; 32],
-
-    scene_builders: Vec<SceneBuilder>,
-    procedural_scene_builders: Vec<ProceduralSceneBuilder>,
+    scene_builder: &SceneBuilder,
 ) {
-    let aspect_ratio = resolution.y as f32 / resolution.x as f32;
-    let mut scene = Scene::new(1.0, aspect_ratio);
+    let scene = scene_builder.generate_static();
+    let optimized_scene = scene.optimize();
 
-    for pre_scene_builder in scene_builders {
-        pre_scene_builder(&mut scene);
-    }
-
-    for psb in &procedural_scene_builders {
-        psb(&mut scene, 1, 0);
-    }
-
+    const MULTITHREADED: bool = true;
+    const USE_PROGRESS_BAR: bool = true;
     let pixels = crate::rendering::render_scene(
-        &scene,
+        &optimized_scene,
         resolution,
         num_samples_per_pixel,
         6,
         rng_seed,
-        true,
-        true,
+        MULTITHREADED,
+        USE_PROGRESS_BAR,
     );
 
     write_as_png("output", &pixels, resolution.x as u32, resolution.y as u32)
@@ -47,8 +38,7 @@ pub fn generate_animation(
     num_samples_per_pixel: u32,
     rng_seed: [u8; 32],
 
-    pre_scene_builders: Vec<SceneBuilder>,
-    procedural_scene_builders: Vec<ProceduralSceneBuilder>,
+    scene_builder: &SceneBuilder,
 ) {
     // clear/make folder to store frames
     let path = std::path::Path::new("animation");
@@ -59,19 +49,11 @@ pub fn generate_animation(
 
     let pb = ProgressBar::new(num_frames as u64);
     for frame in 0..num_frames {
-        let aspect_ratio = resolution.y as f32 / resolution.x as f32;
-        let mut scene = Scene::new(1.0, aspect_ratio);
-
-        for pre_scene_builder in pre_scene_builders.clone() {
-            pre_scene_builder(&mut scene);
-        }
-
-        for psb in &procedural_scene_builders {
-            psb(&mut scene, num_frames, frame);
-        }
+        let scene = scene_builder.generate(num_frames, frame);
+        let optimized_scene = scene.optimize();
 
         let pixels = crate::rendering::render_scene(
-            &scene,
+            &optimized_scene,
             resolution,
             num_samples_per_pixel,
             6,

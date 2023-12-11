@@ -1,9 +1,11 @@
 use std::f32::consts::PI;
+use std::sync::Mutex;
 
 use crate::material::BasicMaterial;
 use crate::scene::Scene;
-use crate::shapes::Sphere;
+use crate::shapes::{Quad, Sphere};
 use glam::Vec3;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 pub fn pidgeon_camera(scene: &mut Scene, num_frames: u32, frame: u32) {
     let start_time = 0.0;
@@ -90,7 +92,7 @@ pub fn interweaved_xbox_spinny(scene: &mut Scene, num_frames: u32, frame: u32) {
             material: material.clone(),
             orientation: glam::Quat::IDENTITY,
         };
-        scene.shapes.push(Box::new(sphere));
+        scene.add_shape(Box::new(sphere));
     }
 
     let scene_center = Vec3::ZERO;
@@ -106,6 +108,81 @@ pub fn interweaved_xbox_spinny(scene: &mut Scene, num_frames: u32, frame: u32) {
             material: material.clone(),
             orientation: glam::Quat::IDENTITY,
         };
-        scene.shapes.push(Box::new(sphere));
+        scene.add_shape(Box::new(sphere));
+    }
+}
+
+pub fn wave_sheet(scene: &mut Scene, num_frames: u32, frame: u32) {
+    let center = Vec3::ZERO;
+
+    let radius = scene.scale / 12.0;
+
+    let start_time = 0.0;
+    let end_time = PI * 2.0;
+    let interval = (end_time - start_time) / num_frames as f32;
+
+    let t = start_time + frame as f32 * interval;
+
+    // were going to make a sheet of quads, lets start with 10x10
+    let mat = BasicMaterial::builder()
+        .color(Vec3::new(255.0, 255.0, 255.0))
+        .ambient(0.00)
+        .diffuse(0.01)
+        .specular(0.05)
+        .reflection(0.5)
+        .roughness(0.0)
+        .refraction(0.85)
+        .refractive_index(2.3)
+        .build();
+
+    // function which takes a point and returns a height
+    let height = |x: f32, y: f32| {
+        let freq = 4.0;
+        (t + x * freq).sin() + (t + y * freq).cos()
+    };
+
+    let num = 100;
+    let h_scale = scene.scale / 10.0;
+    let quads = Mutex::new(Vec::new());
+
+    (0..num).into_par_iter().for_each(|i| {
+        (0..num).into_par_iter().for_each(|j| {
+            let x = i as f32 / num as f32 - 0.5;
+            let y = j as f32 / num as f32 - 0.5;
+
+            let next_x = (i as f32 + 1.1) / num as f32 - 0.5;
+            let next_y = (j as f32 + 1.1) / num as f32 - 0.5;
+
+            let p = Vec3::new(x * scene.scale, height(x, y) * h_scale, y * scene.scale);
+            let tr = Vec3::new(
+                next_x * scene.scale,
+                height(next_x, y) * h_scale,
+                y * scene.scale,
+            );
+            let bl = Vec3::new(
+                x * scene.scale,
+                height(x, next_y) * h_scale,
+                next_y * scene.scale,
+            );
+            let br = Vec3::new(
+                next_x * scene.scale,
+                height(next_x, next_y) * h_scale,
+                next_y * scene.scale,
+            );
+
+            let mut quads = quads.lock().unwrap();
+            quads.push((p, tr, bl, br));
+        });
+    });
+
+    let quads = quads.lock().unwrap();
+    for quad in &*quads {
+        scene.add_shape(Box::new(Quad::new_from_points(
+            quad.0,
+            quad.1,
+            quad.2,
+            quad.3,
+            Box::new(mat.clone()),
+        )));
     }
 }

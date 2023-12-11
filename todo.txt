@@ -3,3 +3,5 @@
 - try some procedurally generated textures
 
 - refactor roughness to be a scale off of smoothness
+
+- investigate/fix bug in camera constructor involving viewport_aspect_Ratio

@@ -1,6 +1,6 @@
 use glam::IVec2;
 
-use crate::generate::{generate_image, ProceduralSceneBuilder, SceneBuilder};
+use crate::{generate::generate_image, scene::SceneBuilder};
 
 pub mod generate;
 pub mod image_writing;
@@ -8,6 +8,7 @@ pub mod material;
 pub mod rendering;
 pub mod scene;
 pub mod scenes;
+pub mod shape_bvh_node;
 pub mod shapes;
 pub mod structures;
 pub mod utils;
@@ -31,64 +32,54 @@ fn main() {
         IVec2 { x: 1080, y: 1920 }, // 9 vertical 1080 monitor
     ];
 
-    let mut scene_builders = Vec::<SceneBuilder>::new();
-    let mut procedural_scene_builders = Vec::<ProceduralSceneBuilder>::new();
+    let resolution = resolutions[7];
+    let aspect_ratio = resolution.y as f32 / resolution.x as f32;
+    let mut scene_builder = SceneBuilder::new(1.0, aspect_ratio);
 
-    scene_builders.push(scenes::fixed::quad_light);
+    scene_builder.add_mod(scenes::fixed::quad_light);
 
-    // scene_builders.push(scenes::fixed::single_centered_light);
-    // scene_builders.push(scenes::fixed::some_random_lights);
-    // scene_builders.push(scenes::fixed::basic_quad);
+    // scene_builder.add_mod(scenes::fixed::single_centered_light);
+    // scene_builder.add_mod(scenes::fixed::some_random_lights);
+    // scene_builder.add_mod(scenes::fixed::basic_quad);
 
-    // scene_builders.push(scenes::fixed::light_box);
-    // scene_builders.push(scenes::fixed::centered_ball);
-    scene_builders.push(scenes::fixed::centered_ball_with_normals);
+    // scene_builder.add_mod(scenes::fixed::light_box);
+    // scene_builder.add_mod(scenes::fixed::centered_ball);
+    // scene_builder.add_mod(scenes::fixed::centered_ball_with_normals);
 
-    // scene_builders.push(scenes::fixed::light_ball);
-    scene_builders.push(scenes::fixed::test_balls);
-    scene_builders.push(scenes::fixed::checkered_floor);
-    // scene_builders.push(scenes::fixed::textured_floor);
-    // scene_builders.push(scenes::fixed::matte_floor);
+    // scene_builder.add_mod(scenes::fixed::light_ball);
+    // scene_builder.add_mod(scenes::fixed::test_balls);
+    // scene_builder.add_mod(scenes::fixed::test_tris);
+    // scene_builder.add_mod(scenes::fixed::checkered_floor);
+    // scene_builder.add_mod(scenes::fixed::textured_floor);
+    // scene_builder.add_mod(scenes::fixed::matte_floor);
 
-    scene_builders.push(scenes::fixed::sky_sphere);
-    // scene_builders.push(scenes::fixed::infinite_checkered_floor);
-    // scene_builders.push(scenes::fixed::raised_cam);
-    // scene_builders.push(scenes::fixed::shifted_cam);
+    scene_builder.add_mod(scenes::fixed::sky_sphere);
+    // scene_builder.add_mod(scenes::fixed::infinite_checkered_floor);
+    // scene_builder.add_mod(scenes::fixed::raised_cam);
+    // scene_builder.add_mod(scenes::fixed::shifted_cam);
 
-    // scene_builders.push(scenes::fixed::set_cam);
-    // scene_builders.push(scenes::fixed::some_random_balls);
-    // scene_builders.push(scenes::fixed::scene_4);
+    scene_builder.add_mod(scenes::fixed::set_cam);
+    scene_builder.add_mod(scenes::fixed::grid_of_balls);
+    // scene_builder.add_mod(scenes::fixed::some_random_balls);
+    // scene_builder.add_mod(scenes::fixed::scene_4);
 
     ////////    STANDALONE ANIMATIONS    ////////
-    // procedural_scene_builders.push(scenes::animated::interweaved_xbox_spinny);
+    // scene_builder.add_proc_mod(scenes::animated::interweaved_xbox_spinny);
+    scene_builder.add_proc_mod(scenes::animated::wave_sheet);
 
     //////////////////////// CAMERA ZONE ////////////////////////
-    procedural_scene_builders.push(scenes::animated::orbit_camera);
-    // procedural_scene_builders.push(scenes::animated::pidgeon_camera);
+    // scene_builder.add_proc_mod(scenes::animated::orbit_camera);
+    // scene_builder.add_proc_mod(scenes::animated::pidgeon_camera);
 
-    let resolution = resolutions[5];
-    println!("Resolution: {:?}", resolution);
     let time = std::time::Instant::now();
 
-    let samps = 20;
+    let samps = 1;
+    println!("Resolution: {:?} @ {} samples per pixel", resolution, samps);
+
     let rng_seed = [0u8; 32];
 
-    // generate_image(
-    //     resolution,
-    //     samps,
-    //     rng_seed,
-    //     scene_builders,
-    //     procedural_scene_builders,
-    // );
-
-    generate::generate_animation(
-        resolution,
-        240,
-        samps,
-        rng_seed,
-        scene_builders,
-        procedural_scene_builders,
-    );
+    // generate_image(resolution, samps, rng_seed, &scene_builder);
+    generate::generate_animation(resolution, 120, samps, rng_seed, &scene_builder);
 
     println!("Time elapsed: {:?}", time.elapsed());
 }
