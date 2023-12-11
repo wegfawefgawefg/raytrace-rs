@@ -5,3 +5,7 @@
 - refactor roughness to be a scale off of smoothness
 
 - investigate/fix bug in camera constructor involving viewport_aspect_Ratio
+
+- obj loading
+- texture mapping on tris needs to work maybe
+- try perlin noise terrain
