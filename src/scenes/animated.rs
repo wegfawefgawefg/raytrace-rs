@@ -129,15 +129,15 @@ pub fn wave_sheet(scene: &mut Scene, num_frames: u32, frame: u32) {
         .ambient(0.00)
         .diffuse(0.01)
         .specular(0.05)
-        .reflection(0.5)
-        .roughness(0.0)
-        .refraction(0.85)
-        .refractive_index(2.3)
+        .reflection(0.9)
+        .roughness(0.1)
+        // .refraction(0.85)
+        // .refractive_index(2.3)
         .build();
 
     // function which takes a point and returns a height
     let height = |x: f32, y: f32| {
-        let freq = 4.0;
+        let freq = 8.0;
         (t + x * freq).sin() + (t + y * freq).cos()
     };
 

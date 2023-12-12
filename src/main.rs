@@ -49,26 +49,29 @@ fn main() {
     // scene_builder.add_mod(scenes::fixed::light_ball);
     // scene_builder.add_mod(scenes::fixed::test_balls);
     // scene_builder.add_mod(scenes::fixed::test_tris);
-    // scene_builder.add_mod(scenes::fixed::checkered_floor);
+    scene_builder.add_mod(scenes::fixed::checkered_floor);
     // scene_builder.add_mod(scenes::fixed::textured_floor);
     // scene_builder.add_mod(scenes::fixed::matte_floor);
 
     scene_builder.add_mod(scenes::fixed::sky_sphere);
+    scene_builder.add_mod(scenes::fixed::duck);
+
     // scene_builder.add_mod(scenes::fixed::infinite_checkered_floor);
     // scene_builder.add_mod(scenes::fixed::raised_cam);
     // scene_builder.add_mod(scenes::fixed::shifted_cam);
 
-    scene_builder.add_mod(scenes::fixed::set_cam);
-    scene_builder.add_mod(scenes::fixed::grid_of_balls);
+    // scene_builder.add_mod(scenes::fixed::set_cam);
+    // scene_builder.add_mod(scenes::fixed::set_cam_raised_looking_down);
+    // scene_builder.add_mod(scenes::fixed::grid_of_balls);
     // scene_builder.add_mod(scenes::fixed::some_random_balls);
     // scene_builder.add_mod(scenes::fixed::scene_4);
 
     ////////    STANDALONE ANIMATIONS    ////////
     // scene_builder.add_proc_mod(scenes::animated::interweaved_xbox_spinny);
-    scene_builder.add_proc_mod(scenes::animated::wave_sheet);
+    // scene_builder.add_proc_mod(scenes::animated::wave_sheet);
 
     //////////////////////// CAMERA ZONE ////////////////////////
-    // scene_builder.add_proc_mod(scenes::animated::orbit_camera);
+    scene_builder.add_proc_mod(scenes::animated::orbit_camera);
     // scene_builder.add_proc_mod(scenes::animated::pidgeon_camera);
 
     let time = std::time::Instant::now();
@@ -79,7 +82,7 @@ fn main() {
     let rng_seed = [0u8; 32];
 
     // generate_image(resolution, samps, rng_seed, &scene_builder);
-    generate::generate_animation(resolution, 120, samps, rng_seed, &scene_builder);
+    generate::generate_animation(resolution, 240, samps, rng_seed, &scene_builder);
 
     println!("Time elapsed: {:?}", time.elapsed());
 }

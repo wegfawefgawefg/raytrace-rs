@@ -9,3 +9,4 @@
 - obj loading
 - texture mapping on tris needs to work maybe
 - try perlin noise terrain
+- normalize model vertex positions

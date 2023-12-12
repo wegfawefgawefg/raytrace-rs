@@ -1,4 +1,9 @@
-use bvh::{aabb::AABB, Point3, Vector3};
+use bvh::{
+    aabb::{Bounded, AABB},
+    bounding_hierarchy::BHShape,
+    bvh::BVH,
+    Point3, Vector3,
+};
 use glam::{Vec2, Vec3};
 
 use crate::{
@@ -9,7 +14,6 @@ use crate::{
 
 pub trait Shape: Sync {
     fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord>;
-    fn get_normal(&self, hit_pos: Vec3) -> Vec3;
     fn get_hit_uv(&self, hit_pos: Vec3) -> Vec2;
     fn material(&self) -> &Box<dyn Material>;
     fn aabb(&self) -> AABB;
@@ -77,10 +81,6 @@ impl Shape for Sphere {
         hit_record.set_face_normal(ray, outward_normal);
 
         Some(hit_record)
-    }
-
-    fn get_normal(&self, hit_pos: Vec3) -> Vec3 {
-        (hit_pos - self.center).normalize()
     }
 
     fn material(&self) -> &Box<dyn Material> {
@@ -221,10 +221,6 @@ impl Shape for Quad {
         }
     }
 
-    fn get_normal(&self, _hit_pos: Vec3) -> Vec3 {
-        self.normal
-    }
-
     fn material(&self) -> &Box<dyn Material> {
         &self.material
     }
@@ -296,11 +292,6 @@ impl Shape for Plane {
             }
         }
         None
-    }
-
-    fn get_normal(&self, _hit_pos: Vec3) -> Vec3 {
-        // For a plane, the normal is constant, no matter where you hit it.
-        self.normal
     }
 
     fn material(&self) -> &Box<dyn Material> {
@@ -406,11 +397,7 @@ impl Shape for Tri {
 
         Some(hit_record)
     }
-    fn get_normal(&self, _hit_pos: Vec3) -> Vec3 {
-        let edge1 = self.b - self.a;
-        let edge2 = self.c - self.a;
-        edge1.cross(edge2).normalize()
-    }
+
     fn material(&self) -> &Box<dyn Material> {
         &self.material
     }
@@ -433,5 +420,225 @@ impl Shape for Tri {
         let v = (dot00 * dot1h - dot01 * dot0h) * inv_denom;
 
         Vec2::new(u, v)
+    }
+}
+
+pub struct PrimitiveTri {
+    pub a: Vec3,
+    pub b: Vec3,
+    pub c: Vec3,
+    pub node_index: usize, // for the bvh
+}
+
+impl PrimitiveTri {
+    pub fn new(a: Vec3, b: Vec3, c: Vec3) -> PrimitiveTri {
+        PrimitiveTri {
+            a,
+            b,
+            c,
+            node_index: 0,
+        }
+    }
+
+    fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord> {
+        let edge1 = self.b - self.a;
+        let edge2 = self.c - self.a;
+        let h = ray.dir.cross(edge2);
+        let a = edge1.dot(h);
+
+        if a.abs() < 1e-6 {
+            return None; // Ray is parallel to the triangle
+        }
+
+        let f = 1.0 / a;
+        let s = ray.origin - self.a;
+        let u = f * s.dot(h);
+
+        if !(0.0..=1.0).contains(&u) {
+            return None; // Intersection is outside the triangle
+        }
+
+        let q = s.cross(edge1);
+        let v = f * ray.dir.dot(q);
+
+        if v < 0.0 || u + v > 1.0 {
+            return None; // Intersection is outside the triangle
+        }
+
+        let t = f * edge2.dot(q);
+
+        if t < ray_tmin || t > ray_tmax {
+            return None; // Intersection is outside the valid range
+        }
+
+        let p = ray.at(t);
+        let normal = edge1.cross(edge2).normalize();
+
+        let mut hit_record = HitRecord::new();
+        hit_record.t = t;
+        hit_record.p = p;
+        hit_record.set_face_normal(ray, normal);
+
+        Some(hit_record)
+    }
+}
+
+impl BHShape for PrimitiveTri {
+    fn set_bh_node_index(&mut self, index: usize) {
+        self.node_index = index;
+    }
+
+    fn bh_node_index(&self) -> usize {
+        self.node_index
+    }
+}
+
+impl Bounded for PrimitiveTri {
+    fn aabb(&self) -> AABB {
+        let mut min_x = self.a.x;
+        let mut max_x = self.a.x;
+        let mut min_y = self.a.y;
+        let mut max_y = self.a.y;
+        let mut min_z = self.a.z;
+        let mut max_z = self.a.z;
+
+        // Check each vertex of the quad to find the min and max for each axis
+        let vertices = [self.a, self.b, self.c];
+
+        for vertex in &vertices {
+            min_x = min_x.min(vertex.x);
+            max_x = max_x.max(vertex.x);
+            min_y = min_y.min(vertex.y);
+            max_y = max_y.max(vertex.y);
+            min_z = min_z.min(vertex.z);
+            max_z = max_z.max(vertex.z);
+        }
+
+        let min = Point3::new(min_x, min_y, min_z);
+        let max = Point3::new(max_x, max_y, max_z);
+
+        AABB::with_bounds(min, max)
+    }
+}
+
+pub struct TrisModel {
+    pub tris: Vec<PrimitiveTri>,
+    pub bvh: BVH,
+    pub bounding_box: AABB,
+    pub material: Box<dyn Material>,
+}
+
+impl TrisModel {
+    // TODO: add rotation matrix
+    pub fn new(filename: &str, p: Vec3, scale: Vec3, material: Box<dyn Material>) -> TrisModel {
+        let options = tobj::LoadOptions {
+            triangulate: false,
+            ..Default::default()
+        };
+
+        let (models, _materials) =
+            tobj::load_obj(filename, &options).expect("Failed to OBJ load file");
+
+        // collect tris, and calculate bounding box
+        let mut tris = vec![];
+        let mut min_x = std::f32::MAX;
+        let mut max_x = std::f32::MIN;
+        let mut min_y = std::f32::MAX;
+        let mut max_y = std::f32::MIN;
+        let mut min_z = std::f32::MAX;
+        let mut max_z = std::f32::MIN;
+
+        for m in models.iter() {
+            let mesh = &m.mesh;
+
+            let num_faces = mesh.indices.len() / 3;
+
+            for face in 0..num_faces {
+                let face_indices = &mesh.indices[3 * face..3 * face + 3];
+
+                // this could be wrong
+                let a_i = 3 * face_indices[0] as usize;
+                let b_i = 3 * face_indices[1] as usize;
+                let c_i = 3 * face_indices[2] as usize;
+
+                let a = Vec3::new(
+                    mesh.positions[a_i] * scale.x + p.x,
+                    mesh.positions[a_i + 1] * scale.y + p.y,
+                    mesh.positions[a_i + 2] * scale.z + p.z,
+                );
+
+                let b = Vec3::new(
+                    mesh.positions[b_i] * scale.x + p.x,
+                    mesh.positions[b_i + 1] * scale.y + p.y,
+                    mesh.positions[b_i + 2] * scale.z + p.z,
+                );
+
+                let c = Vec3::new(
+                    mesh.positions[c_i] * scale.x + p.x,
+                    mesh.positions[c_i + 1] * scale.y + p.y,
+                    mesh.positions[c_i + 2] * scale.z + p.z,
+                );
+
+                min_x = min_x.min(a.x).min(b.x).min(c.x);
+                max_x = max_x.max(a.x).max(b.x).max(c.x);
+                min_y = min_y.min(a.y).min(b.y).min(c.y);
+                max_y = max_y.max(a.y).max(b.y).max(c.y);
+                min_z = min_z.min(a.z).min(b.z).min(c.z);
+                max_z = max_z.max(a.z).max(b.z).max(c.z);
+
+                let tri = PrimitiveTri::new(a, b, c);
+                tris.push(tri);
+            }
+        }
+
+        // finalize bounding_box
+        let min = Point3::new(min_x, min_y, min_z);
+        let max = Point3::new(max_x, max_y, max_z);
+        let aabb = AABB::with_bounds(min, max);
+
+        let bvh = BVH::build(&mut tris);
+
+        TrisModel {
+            tris,
+            bvh,
+            bounding_box: aabb,
+            material,
+        }
+    }
+}
+
+impl Shape for TrisModel {
+    fn aabb(&self) -> AABB {
+        self.bounding_box
+    }
+
+    fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord> {
+        // we need to use the bvh
+
+        let bvh_ray = bvh::ray::Ray::new(
+            Point3::new(ray.origin.x, ray.origin.y, ray.origin.z),
+            Vector3::new(ray.dir.x, ray.dir.y, ray.dir.z),
+        );
+
+        let hit_tris = self.bvh.traverse(&bvh_ray, &self.tris);
+
+        for tri in hit_tris {
+            let maybe_record = tri.hit(ray, ray_tmin, ray_tmax);
+            if maybe_record.is_some() {
+                return maybe_record;
+            }
+        }
+
+        None
+    }
+
+    fn material(&self) -> &Box<dyn Material> {
+        &self.material
+    }
+
+    // UNTESTED
+    fn get_hit_uv(&self, _hit_pos: Vec3) -> Vec2 {
+        // doesnt make sense so just return 0, 0
+        Vec2::new(0.0, 0.0)
     }
 }

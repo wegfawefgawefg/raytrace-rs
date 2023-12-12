@@ -12,6 +12,7 @@ use crate::material::{BasicMaterial, CheckerMaterial};
 use crate::scene::Scene;
 use crate::shapes::Quad;
 use crate::shapes::Tri;
+use crate::shapes::TrisModel;
 use crate::shapes::{Plane, Sphere};
 use crate::structures::Light;
 
@@ -126,8 +127,10 @@ pub fn sky_sphere(scene: &mut Scene) {
         .ambient(1.0)
         .build();
     let material = TexturedMaterial::new(
-        "./assets/skysphere.jpg",
-        Vec2::ONE * 0.6,
+        // "./assets/skysphere.jpg",
+        "./assets/envmap.jpg",
+        // Vec2::ONE * 0.6,
+        Vec2::ONE * 1.0,
         true,
         basic_material,
     );
@@ -492,6 +495,39 @@ pub fn centered_ball(scene: &mut Scene) {
 }
 
 pub fn set_cam(scene: &mut Scene) {
+    let center = Vec3::ZERO;
+
+    scene.cam.pos.x = 0.0;
+    scene.cam.pos.y = scene.scale * 0.5;
+    scene.cam.pos.z = center.z - scene.scale * 1.0;
+    scene.cam.look_at(center);
+}
+
+pub fn duck(scene: &mut Scene) {
+    let material = BasicMaterial::builder()
+        .color(Vec3::new(255.0, 255.0, 255.0))
+        .ambient(0.0)
+        .diffuse(0.02)
+        .specular(0.02)
+        .reflection(1.0)
+        .roughness(0.0)
+        .refraction(0.0)
+        .build();
+
+    // position needs to be adjusted by scale
+    let scale = scene.scale * 0.15;
+    let p = Vec3::new(-scale * 5.0, scale * 2.5, scale * 8.0);
+
+    let duck = TrisModel::new(
+        "./assets/duck.obj",
+        p,
+        Vec3::ONE * scale,
+        Box::new(material),
+    );
+    scene.add_shape(Box::new(duck));
+}
+
+pub fn set_cam_raised_looking_down(scene: &mut Scene) {
     let center = Vec3::ZERO;
 
     scene.cam.pos.x = 0.0;
